@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Game Review – 10 Nov 2026</title>
+<title>Chess Game Review</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;800&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -113,9 +113,32 @@ svg.chart{width:100%;height:84px;display:block;border-radius:6px;background:#3d3
 .step{background:#2a2926;border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px}
 .drop{border:2px dashed #55524d;border-radius:8px;padding:16px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer}
 .drop.over{border-color:var(--accent);color:var(--text)}
-.glist{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto}
-.glist label{display:flex;gap:8px;align-items:center;color:var(--text);font-size:13px;margin:0;padding:4px 2px;cursor:pointer}
-.glist input{width:auto}
+.drow{display:flex;gap:6px}
+.drow input{flex:1;min-width:0}
+.filters{display:flex;flex-direction:column;gap:6px}
+.fgroup{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.fgroup .fl{width:52px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.chip{background:#2f2e2b;border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:3px 10px;font:600 12px var(--body);cursor:pointer;font-variant-numeric:tabular-nums}
+.chip[aria-pressed="true"]{background:#3d4a2f;border-color:var(--accent);color:#fff}
+.chip:disabled{opacity:.4;cursor:default}
+.chip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.selbar{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+.selbar span{flex:1}
+.selbar .cbtn{padding:4px 8px;font-size:12px}
+.glist{display:flex;flex-direction:column;max-height:260px;overflow-y:auto;border:1px solid var(--line);border-radius:6px}
+.lbody .grow{display:grid;grid-template-columns:16px auto 42px 12px minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:5px 8px;font-size:13px;cursor:pointer;margin:0;color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums}
+.lbody .grow+.grow{border-top:1px solid #33312e}
+.lbody .grow:hover{background:#302f2c}
+.lbody .grow.done{opacity:.55;cursor:default}
+.lbody .grow input{width:auto;margin:0}
+.grow .tm{color:var(--muted)}
+.grow .res{font-weight:700;text-align:center;border-radius:3px;font-size:11px;padding:1px 0}
+.res.Win{background:#3d4a2f;color:#b4dc84} .res.Loss{background:#4a2f2b;color:#ff9b8c} .res.Draw{background:#3a3936;color:#ccc}
+.grow .side{width:12px;height:12px;border-radius:2px;border:1px solid #777}
+.side.w{background:#f0efe9} .side.b{background:#111}
+.grow .opp{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.grow .rt{color:var(--muted)}
+.grow .tc{color:var(--muted);font-size:12px}
 .msg{font-size:13px;line-height:1.45}
 .msg.err{color:var(--c-Mistake)} .msg.ok{color:var(--c-Best)}
 .lbody a{color:var(--accent)}
@@ -144,7 +167,7 @@ svg.chart{width:100%;height:84px;display:block;border-radius:6px;background:#3d3
       <button class="cbtn go" id="tLoad">Load games</button>
     </div>
     <div class="tools">
-      <button id="tArrows" aria-pressed="true">Best-move arrows: On</button>
+      <button id="tArrows" aria-pressed="true">Suggestion arrows: On</button>
       <button id="tPractice">Practice my mistakes</button>
     </div>
     <div class="scroll" id="scroll">
@@ -184,9 +207,11 @@ svg.chart{width:100%;height:84px;display:block;border-radius:6px;background:#3d3
         <div class="step" id="lPickStep" hidden>
           <h3>3. Choose games to analyse</h3>
           <div class="row">
-            <div><label for="lDate">Show games from</label><input id="lDate" type="date"></div>
-            <div><label for="lDepth">Engine depth</label><select id="lDepth"><option value="12">12 · faster</option><option value="16" selected>16 · same as review</option><option value="18">18 · stronger, slower</option></select></div>
+            <div><label for="lDate">Date</label><div class="drow"><input id="lDate" type="date"><button class="cbtn" id="lAllDates">All dates</button></div></div>
+            <div style="flex:none;width:150px"><label for="lDepth">Engine depth</label><select id="lDepth"><option value="12">12 · faster</option><option value="16" selected>16 · as in review</option><option value="18">18 · slower</option></select></div>
           </div>
+          <div class="filters" id="lFilters"></div>
+          <div class="selbar"><span id="lCount"></span><button class="cbtn" id="lSelAll">Select all</button><button class="cbtn" id="lSelNone">Deselect all</button></div>
           <div class="glist" id="lList"></div>
           <button class="cbtn go" id="lAnalyse">Analyse selected games</button>
           <div class="msg" id="lProgress"></div>
@@ -645,7 +670,7 @@ document.addEventListener("keydown",e=>{
   if(e.key==="ArrowLeft"){stepBack();e.preventDefault();}
   if(e.key==="Home") go(0); if(e.key==="End") go(1e9);
 });
-function syncArrowBtn(){ const b=document.getElementById("tArrows"); b.setAttribute("aria-pressed", showArrows); b.textContent = "Best-move arrows: " + (showArrows?"On":"Off"); }
+function syncArrowBtn(){ const b=document.getElementById("tArrows"); b.setAttribute("aria-pressed", showArrows); b.textContent = "Suggestion arrows: " + (showArrows?"On":"Off"); }
 document.getElementById("tArrows").onclick = () => {
   showArrows = !showArrows; try{ localStorage.setItem("gr-arrows", showArrows?"on":"off"); }catch(e){}
   syncArrowBtn(); redraw();
@@ -754,45 +779,109 @@ L("lFetch").onclick = async () => {
   msg.className="msg"; msg.textContent="Fetching games from chess.com…";
   try {
     const r = await fetch(url); if(!r.ok) throw new Error("chess.com answered " + r.status);
-    receivePgn(await r.text(), "chess.com");
+    receivePgn(await r.text(), "from chess.com");
     msg.className="msg ok"; msg.textContent = "Games fetched.";
   } catch(e) {
     msg.className="msg err";
     if(/answered 404/.test(e.message)){ msg.textContent = "Chess.com has no games for that username and month. Check the spelling of the username."; return; }
-    msg.innerHTML = `This page cannot reach chess.com from here (pages inside Claude are not allowed to contact other sites). ` +
-      `Open <a href="${url}">this month's games file</a>. It downloads a .pgn file. Then drop that file in step 2.`;
+    msg.innerHTML = `Could not reach chess.com (${e.message}). ` +
+      `Open <a href="${url}">this month's games file</a> to download it as a .pgn file, then drop the file in step 2.`;
   }
 };
 L("lDrop").onclick = () => L("lFile").click();
 L("lDrop").onkeydown = e => { if(e.key==="Enter"||e.key===" "){ e.preventDefault(); L("lFile").click(); } };
-L("lFile").onchange = async e => { const f = e.target.files[0]; if(f) receivePgn(await f.text(), f.name); e.target.value=""; };
+L("lFile").onchange = async e => { const f = e.target.files[0]; if(f) receivePgn(await f.text(), "in " + f.name); e.target.value=""; };
 ["dragenter","dragover"].forEach(ev=>L("lDrop").addEventListener(ev, e=>{ e.preventDefault(); L("lDrop").classList.add("over"); }));
 ["dragleave","drop"].forEach(ev=>L("lDrop").addEventListener(ev, e=>{ e.preventDefault(); L("lDrop").classList.remove("over"); }));
-L("lDrop").addEventListener("drop", async e => { const f = e.dataTransfer.files[0]; if(f) receivePgn(await f.text(), f.name); });
-L("lReadPaste").onclick = () => receivePgn(L("lPaste").value, "pasted text");
+L("lDrop").addEventListener("drop", async e => { const f = e.dataTransfer.files[0]; if(f) receivePgn(await f.text(), "in " + f.name); });
+L("lReadPaste").onclick = () => receivePgn(L("lPaste").value, "in the pasted text");
+// ---- Step 3: game list with filters
+const FILTERS = [
+  ["Result", "res", ["Win","Loss","Draw"]],
+  ["Colour", "side", ["White","Black"]],
+  ["Type",   "kind", ["Bullet","Blitz","Rapid","Daily"]]
+];
+const fOn = {res:new Set(["Win","Loss","Draw"]), side:new Set(["White","Black"]), kind:new Set(["Bullet","Blitz","Rapid","Daily"])};
+let chosen = new Set();
+function gameMeta(h){
+  const iso = h.UTCDate && h.UTCTime ? h.UTCDate.replace(/\./g,"-")+"T"+h.UTCTime+"Z" : null;
+  const when = iso ? new Date(iso) : null;
+  const pad = n => String(n).padStart(2,"0");
+  const day = when ? `${when.getFullYear()}-${pad(when.getMonth()+1)}-${pad(when.getDate())}` : (h.Date||"").replace(/\./g,"-");
+  const time = when ? `${pad(when.getHours())}:${pad(when.getMinutes())}` : "";
+  const tc = h.TimeControl||""; const base = +tc.split("+")[0];
+  const kind = tc.includes("/") ? "Daily" : base < 180 ? "Bullet" : base < 600 ? "Blitz" : "Rapid";
+  const side = h.White===ME ? "White" : h.Black===ME ? "Black" : null;
+  const res = resultFor(h);
+  const opp = side==="White" ? h.Black : side==="Black" ? h.White : `${h.White} vs ${h.Black}`;
+  const oppElo = side==="White" ? h.BlackElo : side==="Black" ? h.WhiteElo : "";
+  const done = GAMES.some(x=>x.h.Link && x.h.Link===h.Link);
+  return {day, time, kind, side, res, opp, oppElo, done};
+}
 function receivePgn(text, source){
-  const games = splitPgn(text).map(pgn => ({pgn, h: headersOf(pgn)}));
+  const games = splitPgn(text).map(pgn => { const h = headersOf(pgn); return {pgn, h, m: gameMeta(h)}; });
   const prog = L("lProgress");
   L("lPickStep").hidden = false;
-  if(!games.length){ L("lList").innerHTML = ""; prog.className="msg err"; prog.textContent = `No games found in the ${source}. Check that it is PGN text starting with [Event "…"].`; return; }
-  prog.className="msg"; prog.textContent = `${games.length} game${games.length>1?"s":""} found in the ${source}.`;
+  if(!games.length){ pending = []; L("lList").innerHTML = ""; L("lFilters").innerHTML = ""; L("lCount").textContent = "";
+    prog.className="msg err"; prog.textContent = `No games found ${source}. Check that it is PGN text starting with [Event "…"].`; return; }
+  prog.className="msg"; prog.textContent = `${games.length} game${games.length>1?"s":""} found ${source}.`;
   pending = games;
-  const dates = [...new Set(games.map(g=>(g.h.Date||"").replace(/\./g,"-")))].sort();
-  L("lDate").min = dates[0]; L("lDate").max = dates[dates.length-1];
-  L("lDate").value = dates[dates.length-1];
+  const days = [...new Set(games.map(g=>g.m.day))].sort();
+  L("lDate").min = days[0]; L("lDate").max = days[days.length-1];
+  L("lDate").value = days[days.length-1];
+  chosen = new Set(games.map((g,i)=>i).filter(i => games[i].m.day===L("lDate").value && !games[i].m.done));
   renderPending();
   L("lPickStep").scrollIntoView({block:"nearest"});
 }
 L("lDate").onchange = renderPending;
-function renderPending(){
-  const day = L("lDate").value.replace(/-/g,".");
-  const rows = pending.map((g,i)=>({g,i})).filter(({g}) => !day || (g.h.Date||"")===day);
-  L("lList").innerHTML = rows.length ? rows.map(({g,i})=>{
-    const h = g.h, done = GAMES.some(x=>x.h.Link && x.h.Link===h.Link);
-    const opp = h.White===ME ? h.Black : h.Black===ME ? h.White : `${h.White} vs ${h.Black}`;
-    return `<label><input type="checkbox" data-i="${i}" ${done?"disabled":"checked"}> ${h.UTCTime||h.StartTime||""} · ${resultFor(h)} vs ${opp} · ${tcText(h.TimeControl)}${done?" · already analysed":""}</label>`;
-  }).join("") : `<p>No games on this date.</p>`;
+L("lAllDates").onclick = () => { L("lDate").value = ""; renderPending(); };
+function passes(g, ignoreKey){
+  const day = L("lDate").value;
+  if(day && g.m.day!==day) return false;
+  for(const [, key] of FILTERS){
+    if(key===ignoreKey) continue;
+    const v = g.m[key]; if(v===null) continue;
+    if(!fOn[key].has(v)) return false;
+  }
+  return true;
 }
+function visibleIdx(){ return pending.map((g,i)=>i).filter(i=>passes(pending[i])); }
+function renderFilters(){
+  L("lFilters").innerHTML = FILTERS.map(([title, key, vals]) =>
+    `<div class="fgroup" role="group" aria-label="${title}"><span class="fl">${title}</span>` + vals.map(v => {
+      const n = pending.filter(g => g.m[key]===v && passes(g, key)).length;
+      return `<button class="chip" data-k="${key}" data-v="${v}" aria-pressed="${fOn[key].has(v)}" ${n?"":"disabled"}>${v} ${n}</button>`;
+    }).join("") + `</div>`).join("");
+  L("lFilters").querySelectorAll(".chip").forEach(c => c.onclick = () => {
+    const set = fOn[c.dataset.k]; set.has(c.dataset.v) ? set.delete(c.dataset.v) : set.add(c.dataset.v); renderPending();
+  });
+}
+function renderPending(){
+  renderFilters();
+  const vis = visibleIdx(), allDates = !L("lDate").value;
+  const fmtDay = d => { const [y,m,dd] = d.split("-"); return `${+dd} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]}`; };
+  L("lList").innerHTML = vis.length ? vis.map(i => {
+    const g = pending[i], m = g.m;
+    const tcShort = tcText(g.h.TimeControl).replace(/ (bullet|blitz|rapid)$/,"");
+    return `<label class="grow${m.done?" done":""}" title="${m.opp}${m.oppElo?" ("+m.oppElo+")":""}">` +
+      `<input type="checkbox" data-i="${i}" ${m.done?"disabled":""} ${chosen.has(i)&&!m.done?"checked":""}>` +
+      `<span class="tm">${allDates?fmtDay(m.day)+" ":""}${m.time}</span>` +
+      `<span class="res ${m.res}">${m.res}</span>` +
+      `<span class="side ${m.side==="White"?"w":m.side==="Black"?"b":""}" title="You played ${m.side||"neither side"}"></span>` +
+      `<span class="opp">${m.opp}</span>` +
+      `<span class="rt">${m.oppElo||""}</span>` +
+      `<span class="tc">${m.done ? "Analysed" : tcShort}</span></label>`;
+  }).join("") : `<p style="padding:10px">No games match these filters.</p>`;
+  L("lList").querySelectorAll("input").forEach(cb => cb.onchange = () => { const i=+cb.dataset.i; cb.checked ? chosen.add(i) : chosen.delete(i); updateCount(); });
+  updateCount();
+}
+function updateCount(){
+  const vis = visibleIdx(), sel = vis.filter(i=>chosen.has(i) && !pending[i].m.done);
+  L("lCount").textContent = `Showing ${vis.length} of ${pending.length} · ${sel.length} selected`;
+  L("lAnalyse").textContent = sel.length ? `Analyse ${sel.length} game${sel.length>1?"s":""}` : "Analyse selected games";
+}
+L("lSelAll").onclick = () => { visibleIdx().forEach(i=>{ if(!pending[i].m.done) chosen.add(i); }); renderPending(); };
+L("lSelNone").onclick = () => { visibleIdx().forEach(i=>chosen.delete(i)); renderPending(); };
 async function analyseGame(pgn, depth, onMove){
   const ch = new Chess();
   const clean = pgn.replace(/\{[^}]*\}/g,"").replace(/\$\d+/g,"");
@@ -836,7 +925,7 @@ async function analyseGame(pgn, depth, onMove){
 let analysing = false;
 L("lAnalyse").onclick = async () => {
   if(analysing) return;
-  const picks = [...document.querySelectorAll("#lList input:checked")].map(x=>pending[+x.dataset.i]);
+  const picks = visibleIdx().filter(i=>chosen.has(i) && !pending[i].m.done).map(i=>pending[i]);
   const prog = L("lProgress");
   if(!picks.length){ prog.className="msg err"; prog.textContent="Select at least one game."; return; }
   analysing = true; L("lAnalyse").disabled = true;
@@ -850,6 +939,7 @@ L("lAnalyse").onclick = async () => {
       GAMES.push(g); sortGames(); saveGames(); lastIdx = GAMES.indexOf(g);
     }
     prog.className="msg ok"; prog.textContent = `Done. ${picks.length} game${picks.length>1?"s":""} added to the game list.`;
+    pending.forEach(g => g.m = gameMeta(g.h)); chosen.clear();
     buildPicker(); renderPending();
     if(lastIdx>=0){ L("loader").hidden = true; selectGame(lastIdx); }
   } catch(e) {
