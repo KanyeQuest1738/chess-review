@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game Review – 10 Nov 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;800&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: eval bar | board | review panel, like an online chess game review. Single dark theme by choice. */
+:root{
+  --bg:#2b2a27; --panel:#21201d; --panel2:#1a1917; --line:#3c3a36;
+  --text:#e8e6e1; --muted:#9b9893;
+  --light:#ebecd0; --dark:#739552; --hl:rgba(245,246,105,.55);
+  --accent:#81b64c;
+  --display:"Montserrat",system-ui,sans-serif; --body:"Noto Sans",system-ui,sans-serif;
+  --c-Brilliant:#26c2a3; --c-Great:#5c8bb0; --c-Best:#81b64c; --c-Excellent:#96bc4b; --c-Good:#95b776;
+  --c-Book:#a88865; --c-Inaccuracy:#f7c631; --c-Mistake:#ffa459; --c-Missed:#dbac16; --c-Blunder:#fa412d;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--body);font-size:15px}
+.app{display:flex;gap:16px;padding:16px;justify-content:center;align-items:flex-start;flex-wrap:wrap;min-height:100%}
+.boardwrap{display:flex;flex-direction:column;gap:8px;width:min(92vw,620px)}
+.player{display:flex;align-items:center;gap:10px;font-weight:600}
+.player .av{width:34px;height:34px;border-radius:4px;display:grid;place-items:center;font-size:22px}
+.player .av.w{background:#f0efe9;color:#333} .player .av.b{background:#3a3936;color:#eee}
+.player .rt{color:var(--muted);font-weight:400}
+.player .you{font-size:11px;background:var(--accent);color:#fff;padding:1px 6px;border-radius:3px;font-weight:700}
+.boardrow{display:flex;gap:6px}
+.evalbar{width:26px;border-radius:3px;overflow:hidden;position:relative;background:#403d39;flex:none}
+.evalbar .fill{position:absolute;left:0;right:0;background:#fff;transition:height .25s ease}
+.evalbar .num{position:absolute;left:0;right:0;text-align:center;font-size:10px;font-weight:700}
+#board{flex:1;aspect-ratio:1;display:block;border-radius:3px;user-select:none}
+.panel{width:min(92vw,400px);background:var(--panel);border-radius:8px;display:flex;flex-direction:column;overflow:hidden;max-height:calc(100vh - 32px);min-height:640px}
+.phead{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--panel2);font-family:var(--display);font-weight:800;font-size:18px}
+.phead .star{color:var(--accent);font-size:22px}
+.tabs{display:flex;gap:6px;padding:10px 16px 0}
+.tabs button{flex:1;background:#2f2e2b;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:8px 6px;font:600 13px var(--body);cursor:pointer}
+.tabs button[aria-selected="true"]{background:#3a3936;color:var(--text);border-color:var(--accent)}
+.tabs button:focus-visible,.nav button:focus-visible,.mv:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.scroll{flex:1;min-height:0;overflow-y:auto;padding:12px 16px 12px;display:flex;flex-direction:column;gap:12px}
+.coach{background:#2f2e2b;border-radius:8px;padding:12px;display:flex;gap:10px;align-items:flex-start;min-height:64px}
+.coach .ic{flex:none}
+.coach b{display:block;margin-bottom:2px}
+.coach .sub{color:var(--muted);font-size:13px}
+svg.chart{width:100%;height:84px;display:block;border-radius:6px;background:#3d3b37;cursor:pointer}
+.acc{display:grid;grid-template-columns:1fr auto auto;row-gap:6px;column-gap:14px;align-items:center;font-variant-numeric:tabular-nums}
+.acc .hd{color:var(--muted);font-size:12px;text-align:center}
+.accbox{font:800 20px var(--display);padding:6px 10px;border-radius:5px;text-align:center;min-width:72px}
+.accbox.w{background:#fff;color:#222} .accbox.b{background:#403d39;color:#fff}
+.accnote{grid-column:1/-1;color:var(--muted);font-size:11.5px}
+.counts{display:grid;grid-template-columns:repeat(2,auto 1fr auto auto);row-gap:5px;column-gap:8px;align-items:center;font-variant-numeric:tabular-nums;font-size:13px}
+.counts .hd{color:var(--muted);font-size:11px;text-align:center}
+.counts .n{text-align:center;font-weight:700;min-width:30px}
+.counts .n.zero{color:#5d5b57;font-weight:400}
+.ic{width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;color:#fff;font:800 11px var(--body);letter-spacing:-.5px}
+.moves{flex:1;min-height:120px;overflow-y:auto;align-content:start;display:grid;grid-template-columns:36px 1fr 1fr;row-gap:2px;font-variant-numeric:tabular-nums}
+.moves .no{color:var(--muted);padding:4px 0}
+.mv{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:4px;cursor:pointer;background:none;border:0;color:var(--text);font:600 14px var(--body);text-align:left}
+.mv:hover{background:#34322f}
+.mv.cur{background:#4b4847}
+.mv .ic{width:16px;height:16px;font-size:9px}
+.nav{display:flex;gap:6px;padding:10px 16px;background:var(--panel2)}
+.nav button{flex:1;background:#3a3936;border:0;border-radius:5px;color:var(--text);font-size:18px;padding:8px 0;cursor:pointer}
+.nav button:hover{background:#4a4845}
+.nav button.primary{background:var(--accent);color:#fff}
+.link{color:var(--muted);font-size:12px;text-align:center}
+.link a{color:var(--accent)}
+.tools{display:flex;gap:6px;padding:10px 16px 0}
+.tools button,.cbtn{background:#3a3936;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font:600 13px var(--body);cursor:pointer}
+.tools button{flex:1}
+.tools button:hover,.cbtn:hover{background:#4a4845}
+.tools button[aria-pressed="true"]{border-color:var(--accent);color:#fff}
+.tools button:focus-visible,.cbtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.cbtn.go{background:var(--accent);border-color:var(--accent);color:#fff}
+.cbtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.coach.retry{outline:2px solid var(--accent)}
+.tries{display:flex;flex-direction:column;gap:4px;margin-top:8px;font-size:13px}
+.tries div{display:flex;align-items:center;gap:6px}
+.tries .ic{width:16px;height:16px;font-size:9px}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid #666;border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+#board.pick{cursor:pointer}
+.picker{display:flex;gap:6px;padding:10px 16px 0}
+.picker select{flex:1;min-width:0;background:#2f2e2b;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px;font:600 13px var(--body)}
+.panel{position:relative}
+.loader{position:absolute;inset:0;background:var(--panel);z-index:5;display:flex;flex-direction:column}
+.loader[hidden]{display:none}
+.lbody{overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:14px;flex:1}
+.lbody h3{margin:0;font:800 14px var(--display)}
+.lbody p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+.lbody label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+.lbody input,.lbody select,.lbody textarea{width:100%;background:#2f2e2b;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px;font:13px var(--body)}
+.lbody textarea{min-height:90px;resize:vertical;font-family:ui-monospace,monospace;font-size:12px}
+.row{display:flex;gap:8px;align-items:flex-end}
+.row>div{flex:1;min-width:0}
+.step{background:#2a2926;border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.drop{border:2px dashed #55524d;border-radius:8px;padding:16px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer}
+.drop.over{border-color:var(--accent);color:var(--text)}
+.glist{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto}
+.glist label{display:flex;gap:8px;align-items:center;color:var(--text);font-size:13px;margin:0;padding:4px 2px;cursor:pointer}
+.glist input{width:auto}
+.msg{font-size:13px;line-height:1.45}
+.msg.err{color:var(--c-Mistake)} .msg.ok{color:var(--c-Best)}
+.lbody a{color:var(--accent)}
+.sect{font:700 12px var(--display);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.coach,svg.chart,.acc,.counts,.sect,.link{flex:none}
+@media (prefers-reduced-motion:reduce){.evalbar .fill{transition:none}}
+@media (max-width:1060px){.panel{max-height:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="boardwrap">
+    <div class="player" id="ptop"></div>
+    <div class="boardrow">
+      <div class="evalbar" id="evalbar"><div class="fill" id="evalfill"></div><div class="num" id="evalnum"></div></div>
+      <svg id="board" viewBox="0 0 800 800" role="img" aria-label="Chess board"></svg>
+    </div>
+    <div class="player" id="pbot"></div>
+  </div>
+  <aside class="panel">
+    <div class="phead"><span class="star">★</span>Game Review</div>
+    <div class="picker">
+      <label for="gamePick" style="position:absolute;left:-9999px">Choose a game</label>
+      <select id="gamePick"></select>
+      <button class="cbtn go" id="tLoad">Load games</button>
+    </div>
+    <div class="tools">
+      <button id="tArrows" aria-pressed="true">Best-move arrows: On</button>
+      <button id="tPractice">Practice my mistakes</button>
+    </div>
+    <div class="scroll" id="scroll">
+      <div class="coach" id="coach"></div>
+      <svg class="chart" id="chart" viewBox="0 0 400 84" preserveAspectRatio="none" aria-label="Evaluation graph"></svg>
+      <div class="acc" id="acc"></div>
+      <div class="counts" id="counts"></div>
+      <div class="sect">Moves</div>
+      <div class="moves" id="moves"></div>
+      <div class="link" id="link"></div>
+    </div>
+    <div class="nav">
+      <button id="bStart" aria-label="First move">⏮</button>
+      <button id="bPrev" aria-label="Previous move">◀</button>
+      <button id="bNext" class="primary" aria-label="Next move">▶</button>
+      <button id="bEnd" aria-label="Last move">⏭</button>
+    </div>
+    <div class="loader" id="loader" hidden>
+      <div class="phead"><span class="star">★</span>Load games<span style="flex:1"></span><button class="cbtn" id="lClose">Close</button></div>
+      <div class="lbody">
+        <div class="step">
+          <h3>1. Get your games from chess.com</h3>
+          <div class="row">
+            <div><label for="lUser">Chess.com username</label><input id="lUser" autocomplete="off"></div>
+            <div><label for="lMonth">Month</label><input id="lMonth" type="month"></div>
+          </div>
+          <button class="cbtn go" id="lFetch">Fetch games</button>
+          <div class="msg" id="lFetchMsg"></div>
+        </div>
+        <div class="step">
+          <h3>2. Or add a PGN file or text</h3>
+          <div class="drop" id="lDrop" tabindex="0">Drop a .pgn file here, or click to choose one</div>
+          <input type="file" id="lFile" accept=".pgn,.txt,text/plain" hidden>
+          <div><label for="lPaste">Or paste PGN (on chess.com: Share › PGN › Copy)</label><textarea id="lPaste" placeholder="[Event &quot;Live Chess&quot;] …"></textarea></div>
+          <button class="cbtn" id="lReadPaste">Read pasted PGN</button>
+        </div>
+        <div class="step" id="lPickStep" hidden>
+          <h3>3. Choose games to analyse</h3>
+          <div class="row">
+            <div><label for="lDate">Show games from</label><input id="lDate" type="date"></div>
+            <div><label for="lDepth">Engine depth</label><select id="lDepth"><option value="12">12 · faster</option><option value="16" selected>16 · same as review</option><option value="18">18 · stronger, slower</option></select></div>
+          </div>
+          <div class="glist" id="lList"></div>
+          <button class="cbtn go" id="lAnalyse">Analyse selected games</button>
+          <div class="msg" id="lProgress"></div>
+        </div>
+        <p>Analysis runs in your browser with Stockfish. A 40-move game takes about one to two minutes at depth 16. Analysed games are kept in this browser.</p>
+      </div>
+    </div>
+  </aside>
+</div>
+<script src="chess.js"></script>
+<script>
+const GAMES = [{"h": {"Event": "Live Chess", "Site": "?", "Date": "????.??.??", "Round": "?", "White": "srik16", "Black": "MetDeymen", "Result": "0-1", "ECO": "C23", "WhiteElo": "672", "BlackElo": "695", "Link": "https://www.chess.com/game/live/186927498098"}, "plies": [{"fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"}, {"fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1", "san": "e4", "frm": "e2", "to": "e4", "bestFrm": "e2", "bestTo": "e4", "best": "e4", "label": "Book", "loss": 0, "ev": 35, "acc": 100.0, "color": "W", "num": 1}, {"fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", "san": "e5", "frm": "e7", "to": "e5", "bestFrm": "e7", "bestTo": "e6", "best": "e6", "label": "Book", "loss": 0, "ev": 34, "acc": 100.0, "color": "B", "num": 1}, {"fen": "rnbqkbnr/pppp1ppp/8/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR b KQkq - 1 2", "san": "Bc4", "frm": "f1", "to": "c4", "bestFrm": "g1", "bestTo": "f3", "best": "Nf3", "label": "Book", "loss": 3.8, "ev": -7, "acc": 84.4, "color": "W", "num": 2}, {"fen": "rnbqkb1r/pppp1ppp/5n2/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 2 3", "san": "Nf6", "frm": "g8", "to": "f6", "bestFrm": "g8", "bestTo": "f6", "best": "Nf6", "label": "Book", "loss": 0, "ev": 1, "acc": 100.0, "color": "B", "num": 2}, {"fen": "rnbqkb1r/pppp1ppp/5n2/4p3/2B1P3/3P4/PPP2PPP/RNBQK1NR b KQkq - 0 3", "san": "d3", "frm": "d2", "to": "d3", "bestFrm": "d2", "bestTo": "d3", "best": "d3", "label": "Book", "loss": 0, "ev": 5, "acc": 100.0, "color": "W", "num": 3}, {"fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/3P4/PPP2PPP/RNBQK1NR w KQkq - 1 4", "san": "Nc6", "frm": "b8", "to": "c6", "bestFrm": "c7", "bestTo": "c6", "best": "c6", "label": "Book", "loss": 1.4, "ev": 20, "acc": 94.0, "color": "B", "num": 3}, {"fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/2PP4/PP3PPP/RNBQK1NR b KQkq - 0 4", "san": "c3", "frm": "c2", "to": "c3", "bestFrm": "g1", "bestTo": "f3", "best": "Nf3", "label": "Book", "loss": 1.8, "ev": 0, "acc": 92.1, "color": "W", "num": 4}, {"fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2PP4/PP3PPP/RNBQK1NR w KQkq - 1 5", "san": "Bc5", "frm": "f8", "to": "c5", "bestFrm": "d7", "bestTo": "d5", "best": "d5", "label": "Book", "loss": 1.5, "ev": 16, "acc": 93.6, "color": "B", "num": 4}, {"fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2PP3P/PP3PP1/RNBQK1NR b KQkq - 0 5", "san": "h3", "frm": "h2", "to": "h3", "bestFrm": "g1", "bestTo": "f3", "best": "Nf3", "label": "Book", "loss": 2.1, "ev": -7, "acc": 90.9, "color": "W", "num": 5}, {"fen": "r1bqk2r/ppp2ppp/2n2n2/2bpp3/2B1P3/2PP3P/PP3PP1/RNBQK1NR w KQkq - 0 6", "san": "d5", "frm": "d7", "to": "d5", "bestFrm": "d7", "bestTo": "d5", "best": "d5", "label": "Book", "loss": 0, "ev": -12, "acc": 100.0, "color": "B", "num": 5}, {"fen": "r1bqk2r/ppp2ppp/2n2n2/2bPp3/2B5/2PP3P/PP3PP1/RNBQK1NR b KQkq - 0 6", "san": "exd5", "frm": "e4", "to": "d5", "bestFrm": "e4", "bestTo": "d5", "best": "exd5", "label": "Great", "loss": 0, "ev": -12, "acc": 100.0, "color": "W", "num": 6}, {"fen": "r1bqk2r/ppp2ppp/2n5/2bnp3/2B5/2PP3P/PP3PP1/RNBQK1NR w KQkq - 0 7", "san": "Nxd5", "frm": "f6", "to": "d5", "bestFrm": "f6", "bestTo": "d5", "best": "Nxd5", "label": "Best", "loss": 0, "ev": -7, "acc": 100.0, "color": "B", "num": 6}, {"fen": "r1bqk2r/ppp2ppp/2n5/2bnp2Q/2B5/2PP3P/PP3PP1/RNB1K1NR b KQkq - 1 7", "san": "Qh5", "frm": "d1", "to": "h5", "bestFrm": "g1", "bestTo": "f3", "best": "Nf3", "label": "Mistake", "loss": 12.4, "ev": -145, "acc": 57.0, "color": "W", "num": 7}, {"fen": "r2qk2r/ppp2ppp/2n1b3/2bnp2Q/2B5/2PP3P/PP3PP1/RNB1K1NR w KQkq - 2 8", "san": "Be6", "frm": "c8", "to": "e6", "bestFrm": "e8", "bestTo": "g8", "best": "O-O", "label": "Excellent", "loss": 0.8, "ev": -136, "acc": 96.6, "color": "B", "num": 7}, {"fen": "r2qk2r/ppp2ppp/2n1b3/2bnQ3/2B5/2PP3P/PP3PP1/RNB1K1NR b KQkq - 0 8", "san": "Qxe5", "frm": "h5", "to": "e5", "bestFrm": "h5", "bestTo": "e2", "best": "Qe2", "label": "Blunder", "loss": 35.5, "ev": -1028, "acc": 18.8, "color": "W", "num": 8}, {"fen": "r2qk2r/ppp2ppp/4b3/2bnn3/2B5/2PP3P/PP3PP1/RNB1K1NR w KQkq - 0 9", "san": "Nxe5", "frm": "c6", "to": "e5", "bestFrm": "c6", "bestTo": "e5", "best": "Nxe5", "label": "Best", "loss": 0, "ev": -946, "acc": 100.0, "color": "B", "num": 8}, {"fen": "r2qk2r/ppp2ppp/4b3/2bnn3/2B2B2/2PP3P/PP3PP1/RN2K1NR b KQkq - 1 9", "san": "Bf4", "frm": "c1", "to": "f4", "bestFrm": "g1", "bestTo": "e2", "best": "Ne2", "label": "Good", "loss": 2.5, "ev": -1444, "acc": 89.4, "color": "W", "num": 9}, {"fen": "r2qk2r/ppp2ppp/4b3/2b1n3/2B2n2/2PP3P/PP3PP1/RN2K1NR w KQkq - 0 10", "san": "Nxf4", "frm": "d5", "to": "f4", "bestFrm": "d5", "bestTo": "f4", "best": "Nxf4", "label": "Best", "loss": 0, "ev": -1479, "acc": 100.0, "color": "B", "num": 9}]}, {"h": {"Event": "Live Chess", "Site": "?", "Date": "????.??.??", "Round": "?", "White": "Shadowformation", "Black": "MetDeymen", "Result": "1-0", "ECO": "D02", "WhiteElo": "710", "BlackElo": "687", "Link": "https://www.chess.com/game/live/186927674328"}, "plies": [{"fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"}, {"fen": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1", "san": "d4", "frm": "d2", "to": "d4", "bestFrm": "e2", "bestTo": "e4", "best": "e4", "label": "Book", "loss": 0.9, "ev": 24, "acc": 96.0, "color": "W", "num": 1}, {"fen": "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2", "san": "d5", "frm": "d7", "to": "d5", "bestFrm": "g8", "bestTo": "f6", "best": "Nf6", "label": "Book", "loss": 0.6, "ev": 30, "acc": 97.6, "color": "B", "num": 1}, {"fen": "rnbqkbnr/ppp1pppp/8/3p4/3P1B2/8/PPP1PPPP/RN1QKBNR b KQkq - 1 2", "san": "Bf4", "frm": "c1", "to": "f4", "bestFrm": "c2", "bestTo": "c4", "best": "c4", "label": "Book", "loss": 1.9, "ev": 9, "acc": 91.7, "color": "W", "num": 2}, {"fen": "r1bqkbnr/ppp1pppp/2n5/3p4/3P1B2/8/PPP1PPPP/RN1QKBNR w KQkq - 2 3", "san": "Nc6", "frm": "b8", "to": "c6", "bestFrm": "c7", "bestTo": "c5", "best": "c5", "label": "Book", "loss": 2.5, "ev": 36, "acc": 89.4, "color": "B", "num": 2}, {"fen": "r1bqkbnr/ppp1pppp/2n5/3p4/3P1B2/4P3/PPP2PPP/RN1QKBNR b KQkq - 0 3", "san": "e3", "frm": "e2", "to": "e3", "bestFrm": "e2", "bestTo": "e3", "best": "e3", "label": "Book", "loss": 0, "ev": 46, "acc": 100.0, "color": "W", "num": 3}, {"fen": "r1bqkb1r/ppp1pppp/2n2n2/3p4/3P1B2/4P3/PPP2PPP/RN1QKBNR w KQkq - 1 4", "san": "Nf6", "frm": "g8", "to": "f6", "bestFrm": "g8", "bestTo": "f6", "best": "Nf6", "label": "Book", "loss": 0, "ev": 36, "acc": 100.0, "color": "B", "num": 3}, {"fen": "r1bqkb1r/ppp1pppp/2n2n2/3p4/3P1B2/4PN2/PPP2PPP/RN1QKB1R b KQkq - 2 4", "san": "Nf3", "frm": "g1", "to": "f3", "bestFrm": "c2", "bestTo": "c4", "best": "c4", "label": "Book", "loss": 0.1, "ev": 35, "acc": 99.6, "color": "W", "num": 4}, {"fen": "r2qkb1r/ppp1pppp/2n2n2/3p1b2/3P1B2/4PN2/PPP2PPP/RN1QKB1R w KQkq - 3 5", "san": "Bf5", "frm": "c8", "to": "f5", "bestFrm": "c8", "bestTo": "g4", "best": "Bg4", "label": "Book", "loss": 2.5, "ev": 62, "acc": 89.5, "color": "B", "num": 4}, {"fen": "r2qkb1r/ppp1pppp/2n2n2/3p1b2/2PP1B2/4PN2/PP3PPP/RN1QKB1R b KQkq - 0 5", "san": "c4", "frm": "c2", "to": "c4", "bestFrm": "f1", "bestTo": "b5", "best": "Bb5", "label": "Book", "loss": 2.3, "ev": 37, "acc": 90.2, "color": "W", "num": 5}, {"fen": "r2qkb1r/ppp2ppp/2n1pn2/3p1b2/2PP1B2/4PN2/PP3PPP/RN1QKB1R w KQkq - 0 6", "san": "e6", "frm": "e7", "to": "e6", "bestFrm": "e7", "bestTo": "e6", "best": "e6", "label": "Book", "loss": 0, "ev": 36, "acc": 100.0, "color": "B", "num": 5}, {"fen": "r2qkb1r/ppp2ppp/2n1pn2/3p1b2/2PP1B2/2N1PN2/PP3PPP/R2QKB1R b KQkq - 1 6", "san": "Nc3", "frm": "b1", "to": "c3", "bestFrm": "c4", "bestTo": "c5", "best": "c5", "label": "Book", "loss": 0.8, "ev": 27, "acc": 96.4, "color": "W", "num": 6}, {"fen": "r2qk2r/ppp2ppp/2n1pn2/3p1b2/1bPP1B2/2N1PN2/PP3PPP/R2QKB1R w KQkq - 2 7", "san": "Bb4", "frm": "f8", "to": "b4", "bestFrm": "f8", "bestTo": "b4", "best": "Bb4", "label": "Book", "loss": 0, "ev": 27, "acc": 100.0, "color": "B", "num": 6}, {"fen": "r2qk2r/ppp2ppp/2n1pn2/3p1b2/1bPP1B2/2N1PN2/PP1Q1PPP/R3KB1R b KQkq - 3 7", "san": "Qd2", "frm": "d1", "to": "d2", "bestFrm": "a1", "bestTo": "c1", "best": "Rc1", "label": "Mistake", "loss": 15.1, "ev": -140, "acc": 50.3, "color": "W", "num": 7}, {"fen": "r2qk2r/ppp2ppp/2n1p3/3p1b2/1bPPnB2/2N1PN2/PP1Q1PPP/R3KB1R w KQkq - 4 8", "san": "Ne4", "frm": "f6", "to": "e4", "bestFrm": "f6", "bestTo": "e4", "best": "Ne4", "label": "Best", "loss": 0, "ev": -128, "acc": 100.0, "color": "B", "num": 7}, {"fen": "r2qk2r/ppp2ppp/2n1p3/3p1b2/1bPPnB2/2N1PN2/PP2QPPP/R3KB1R b KQkq - 5 8", "san": "Qe2", "frm": "d2", "to": "e2", "bestFrm": "d2", "bestTo": "c1", "best": "Qc1", "label": "Blunder", "loss": 33.7, "ev": -815, "acc": 20.6, "color": "W", "num": 8}, {"fen": "r2qk2r/ppp2ppp/2n1p3/3p1b2/1bPP1B2/2n1PN2/PP2QPPP/R3KB1R w KQkq - 0 9", "san": "Nxc3", "frm": "e4", "to": "c3", "bestFrm": "e4", "bestTo": "c3", "best": "Nxc3", "label": "Best", "loss": 0, "ev": -794, "acc": 100.0, "color": "B", "num": 8}, {"fen": "r2qk2r/ppp2ppp/2n1p3/3p1b2/1bPP1B2/2P1PN2/P3QPPP/R3KB1R b KQkq - 0 9", "san": "bxc3", "frm": "b2", "to": "c3", "bestFrm": "b2", "bestTo": "c3", "best": "bxc3", "label": "Best", "loss": 0, "ev": -813, "acc": 100.0, "color": "W", "num": 9}, {"fen": "r2qk2r/ppp2ppp/2n1p3/3p1b2/2PP1B2/2b1PN2/P3QPPP/R3KB1R w KQkq - 0 10", "san": "Bxc3+", "frm": "b4", "to": "c3", "bestFrm": "b4", "bestTo": "c3", "best": "Bxc3+", "label": "Great", "loss": 0, "ev": -801, "acc": 100.0, "color": "B", "num": 9}, {"fen": "r2qk2r/ppp2ppp/2n1p3/3p1b2/2PP1B2/2b1P3/P2NQPPP/R3KB1R b KQkq - 1 10", "san": "Nd2", "frm": "f3", "to": "d2", "bestFrm": "e1", "bestTo": "d1", "best": "Kd1", "label": "Excellent", "loss": 0.3, "ev": -817, "acc": 98.8, "color": "W", "num": 10}, {"fen": "r2qk2r/ppp2ppp/2n1p3/3p1b2/2PP1B2/4P3/P2NQPPP/b3KB1R w Kkq - 0 11", "san": "Bxa1", "frm": "c3", "to": "a1", "bestFrm": "c3", "bestTo": "a1", "best": "Bxa1", "label": "Best", "loss": 0, "ev": -775, "acc": 100.0, "color": "B", "num": 10}, {"fen": "r2qk2r/ppp2ppp/2n1p3/3P1b2/3P1B2/4P3/P2NQPPP/b3KB1R b Kkq - 0 11", "san": "cxd5", "frm": "c4", "to": "d5", "bestFrm": "g2", "bestTo": "g4", "best": "g4", "label": "Excellent", "loss": 0.6, "ev": -811, "acc": 97.1, "color": "W", "num": 11}, {"fen": "r3k2r/ppp2ppp/2n1p3/3q1b2/3P1B2/4P3/P2NQPPP/b3KB1R w Kkq - 0 12", "san": "Qxd5", "frm": "d8", "to": "d5", "bestFrm": "d8", "bestTo": "d5", "best": "Qxd5", "label": "Best", "loss": 0, "ev": -816, "acc": 100.0, "color": "B", "num": 11}, {"fen": "r3k2r/ppp2ppp/2n1p3/3q1b2/3P1B2/4PP2/P2NQ1PP/b3KB1R b Kkq - 0 12", "san": "f3", "frm": "f2", "to": "f3", "bestFrm": "e2", "bestTo": "b5", "best": "Qb5", "label": "Excellent", "loss": 1.1, "ev": -889, "acc": 95.3, "color": "W", "num": 12}, {"fen": "r3k2r/ppp2ppp/2n1p3/5b2/3P1B2/4PP2/q2NQ1PP/b3KB1R w Kkq - 0 13", "san": "Qxa2", "frm": "d5", "to": "a2", "bestFrm": "e6", "bestTo": "e5", "best": "e5", "label": "Excellent", "loss": 0.5, "ev": -852, "acc": 97.7, "color": "B", "num": 12}, {"fen": "r3k2r/ppp2ppp/2n1p3/5b2/3P1B2/4PPP1/q2NQ2P/b3KB1R b Kkq - 0 13", "san": "g3", "frm": "g2", "to": "g3", "bestFrm": "g2", "bestTo": "g4", "best": "g4", "label": "Excellent", "loss": 1.1, "ev": -938, "acc": 95.2, "color": "W", "num": 13}, {"fen": "r3k2r/ppp2ppp/2n1p3/5b2/3P1B2/2b1PPP1/q2NQ2P/4KB1R w Kkq - 1 14", "san": "Bc3", "frm": "a1", "to": "c3", "bestFrm": "e6", "bestTo": "e5", "best": "e5", "label": "Excellent", "loss": 0.3, "ev": -913, "acc": 98.7, "color": "B", "num": 13}, {"fen": "r3k2r/ppp2ppp/2n1p3/5b2/3P1B2/2b1PPP1/q2NQ1BP/4K2R b Kkq - 2 14", "san": "Bg2", "frm": "f1", "to": "g2", "bestFrm": "e1", "bestTo": "f2", "best": "Kf2", "label": "Excellent", "loss": 1.3, "ev": -1048, "acc": 94.4, "color": "W", "num": 14}, {"fen": "r3k2r/ppp2ppp/2n1p3/5b2/3P1B2/2b1PPP1/3NQ1BP/q3K2R w Kkq - 3 15", "san": "Qa1+", "frm": "a2", "to": "a1", "bestFrm": "e6", "bestTo": "e5", "best": "e5", "label": "Excellent", "loss": 1.5, "ev": -897, "acc": 93.6, "color": "B", "num": 14}, {"fen": "r3k2r/ppp2ppp/2n1p3/5b2/3P1B2/2b1PPP1/3NQKBP/q6R b kq - 4 15", "san": "Kf2", "frm": "e1", "to": "f2", "bestFrm": "e1", "bestTo": "f2", "best": "Kf2", "label": "Best", "loss": 0, "ev": -884, "acc": 100.0, "color": "W", "num": 15}, {"fen": "r3k2r/ppp2ppp/2n1p3/5b2/3P1B2/4PPP1/3bQKBP/q6R w kq - 0 16", "san": "Bxd2", "frm": "c3", "to": "d2", "bestFrm": "c6", "bestTo": "d4", "best": "Nxd4", "label": "Blunder", "loss": 76.3, "ev": 376, "acc": 0.6, "color": "B", "num": 15}, {"fen": "r3k2r/ppp2ppp/2n1p3/5b2/3P1B2/4PPP1/3bQKBP/R7 b kq - 0 16", "san": "Rxa1", "frm": "h1", "to": "a1", "bestFrm": "h1", "bestTo": "a1", "best": "Rxa1", "label": "Great", "loss": 0, "ev": 333, "acc": 100.0, "color": "W", "num": 16}, {"fen": "r3k2r/ppp2ppp/2n1p3/5b2/1b1P1B2/4PPP1/4QKBP/R7 w kq - 1 17", "san": "Bb4", "frm": "d2", "to": "b4", "bestFrm": "d2", "bestTo": "b4", "best": "Bb4", "label": "Best", "loss": 0, "ev": 315, "acc": 100.0, "color": "B", "num": 16}, {"fen": "r3k2r/ppB2ppp/2n1p3/5b2/1b1P4/4PPP1/4QKBP/R7 b kq - 0 17", "san": "Bxc7", "frm": "f4", "to": "c7", "bestFrm": "e2", "bestTo": "b5", "best": "Qb5", "label": "Missed win", "loss": 13.3, "ev": 143, "acc": 54.7, "color": "W", "num": 17}, {"fen": "r4rk1/ppB2ppp/2n1p3/5b2/1b1P4/4PPP1/4QKBP/R7 w - - 1 18", "san": "O-O", "frm": "e8", "to": "g8", "bestFrm": "a8", "bestTo": "c8", "best": "Rc8", "label": "Mistake", "loss": 15.2, "ev": 345, "acc": 50.0, "color": "B", "num": 17}, {"fen": "r4rk1/ppB2ppp/2n1p3/5b2/Rb1P4/4PPP1/4QKBP/8 b - - 2 18", "san": "Ra4", "frm": "a1", "to": "a4", "bestFrm": "e2", "bestTo": "b5", "best": "Qb5", "label": "Blunder", "loss": 28.1, "ev": 0, "acc": 27.2, "color": "W", "num": 18}, {"fen": "r4rk1/1pB2ppp/2n1p3/p4b2/Rb1P4/4PPP1/4QKBP/8 w - - 0 19", "san": "a5", "frm": "a7", "to": "a5", "bestFrm": "f8", "bestTo": "c8", "best": "Rfc8", "label": "Inaccuracy", "loss": 6.9, "ev": 75, "acc": 73.4, "color": "B", "num": 18}, {"fen": "r4rk1/1pB2ppp/2n1p3/p4b2/Rb1PP3/5PP1/4QKBP/8 b - - 0 19", "san": "e4", "frm": "e3", "to": "e4", "bestFrm": "c7", "bestTo": "b6", "best": "Bb6", "label": "Inaccuracy", "loss": 6.9, "ev": 0, "acc": 73.4, "color": "W", "num": 19}, {"fen": "r4rk1/1pB2ppp/4p3/p4b2/Rb1nP3/5PP1/4QKBP/8 w - - 0 20", "san": "Nxd4", "frm": "c6", "to": "d4", "bestFrm": "c6", "bestTo": "d4", "best": "Nxd4", "label": "Best", "loss": 0, "ev": 0, "acc": 100.0, "color": "B", "num": 19}, {"fen": "r4rk1/1pB2ppp/4p3/p4b2/Rb1nP3/3Q1PP1/5KBP/8 b - - 1 20", "san": "Qd3", "frm": "e2", "to": "d3", "bestFrm": "e2", "bestTo": "d3", "best": "Qd3", "label": "Best", "loss": 0, "ev": 0, "acc": 100.0, "color": "W", "num": 20}, {"fen": "r4rk1/1pB2ppp/4p3/p7/Rb1nb3/3Q1PP1/5KBP/8 w - - 0 21", "san": "Bxe4", "frm": "f5", "to": "e4", "bestFrm": "a8", "bestTo": "c8", "best": "Rac8", "label": "Blunder", "loss": 24.7, "ev": 294, "acc": 32.0, "color": "B", "num": 20}, {"fen": "r4rk1/1pB2ppp/4p3/p7/Rb1nQ3/5PP1/5KBP/8 b - - 0 21", "san": "Qxe4", "frm": "d3", "to": "e4", "bestFrm": "d3", "bestTo": "e4", "best": "Qxe4", "label": "Best", "loss": 0, "ev": 293, "acc": 100.0, "color": "W", "num": 21}, {"fen": "r4rk1/1pB2ppp/4p3/p1b5/R2nQ3/5PP1/5KBP/8 w - - 1 22", "san": "Bc5", "frm": "b4", "to": "c5", "bestFrm": "b7", "bestTo": "b5", "best": "b5", "label": "Mistake", "loss": 11.9, "ev": 504, "acc": 58.4, "color": "B", "num": 21}, {"fen": "r4rk1/1QB2ppp/4p3/p1b5/R2n4/5PP1/5KBP/8 b - - 0 22", "san": "Qxb7", "frm": "e4", "to": "b7", "bestFrm": "a4", "bestTo": "d4", "best": "Rxd4", "label": "Blunder", "loss": 40.5, "ev": -44, "acc": 14.5, "color": "W", "num": 22}, {"fen": "r4rk1/1QB2ppp/4p3/p1b5/R7/1n3PP1/5KBP/8 w - - 1 23", "san": "Nb3+", "frm": "d4", "to": "b3", "bestFrm": "a8", "bestTo": "a7", "best": "Ra7", "label": "Blunder", "loss": 35.2, "ev": 396, "acc": 19.1, "color": "B", "num": 22}, {"fen": "r4rk1/1QB2ppp/4p3/p1b5/R7/1n3PP1/6BP/5K2 b - - 2 23", "san": "Kf1", "frm": "f2", "to": "f1", "bestFrm": "f2", "bestTo": "f1", "best": "Kf1", "label": "Great", "loss": 0, "ev": 428, "acc": 100.0, "color": "W", "num": 23}, {"fen": "r4rk1/1QB2ppp/4p3/p1b5/R7/5PP1/3n2BP/5K2 w - - 3 24", "san": "Nd2+", "frm": "b3", "to": "d2", "bestFrm": "b3", "bestTo": "d2", "best": "Nd2+", "label": "Best", "loss": 0, "ev": 452, "acc": 100.0, "color": "B", "num": 23}, {"fen": "r4rk1/1QB2ppp/4p3/p1b5/R7/5PP1/3n2BP/4K3 b - - 4 24", "san": "Ke1", "frm": "f1", "to": "e1", "bestFrm": "f1", "bestTo": "e1", "best": "Ke1", "label": "Great", "loss": 0, "ev": 453, "acc": 100.0, "color": "W", "num": 24}, {"fen": "r4rk1/1QB2ppp/4p3/p1b5/R7/1n3PP1/6BP/4K3 w - - 5 25", "san": "Nb3", "frm": "d2", "to": "b3", "bestFrm": "a8", "bestTo": "a7", "best": "Ra7", "label": "Inaccuracy", "loss": 8.7, "ev": 697, "acc": 67.4, "color": "B", "num": 24}, {"fen": "r4rk1/2B2ppp/4p3/p1b5/R7/1Q3PP1/6BP/4K3 b - - 0 25", "san": "Qxb3", "frm": "b7", "to": "b3", "bestFrm": "b7", "bestTo": "b3", "best": "Qxb3", "label": "Best", "loss": 0, "ev": 710, "acc": 100.0, "color": "W", "num": 25}, {"fen": "r4rk1/2B2ppp/4p3/p7/Rb6/1Q3PP1/6BP/4K3 w - - 1 26", "san": "Bb4+", "frm": "c5", "to": "b4", "bestFrm": "c5", "bestTo": "b4", "best": "Bb4+", "label": "Best", "loss": 0, "ev": 727, "acc": 100.0, "color": "B", "num": 25}, {"fen": "r4rk1/2B2ppp/4p3/p7/Rb6/1Q3PP1/5KBP/8 b - - 2 26", "san": "Kf2", "frm": "e1", "to": "f2", "bestFrm": "e1", "bestTo": "f1", "best": "Kf1", "label": "Excellent", "loss": 0, "ev": 732, "acc": 100.0, "color": "W", "num": 26}, {"fen": "r1r3k1/2B2ppp/4p3/p7/Rb6/1Q3PP1/5KBP/8 w - - 3 27", "san": "Rfc8", "frm": "f8", "to": "c8", "bestFrm": "f8", "bestTo": "c8", "best": "Rfc8", "label": "Best", "loss": 0, "ev": 762, "acc": 100.0, "color": "B", "num": 26}, {"fen": "r1r3k1/5ppp/4p3/p7/Rb3B2/1Q3PP1/5KBP/8 b - - 4 27", "san": "Bf4", "frm": "c7", "to": "f4", "bestFrm": "f3", "bestTo": "f4", "best": "f4", "label": "Excellent", "loss": 0.6, "ev": 732, "acc": 97.2, "color": "W", "num": 27}, {"fen": "r5k1/5ppp/4p3/p7/Rb3B2/1Qr2PP1/5KBP/8 w - - 5 28", "san": "Rc3", "frm": "c8", "to": "c3", "bestFrm": "b4", "bestTo": "c5", "best": "Bc5+", "label": "Good", "loss": 3.4, "ev": 953, "acc": 85.7, "color": "B", "num": 27}, {"fen": "r5k1/5ppp/4p3/p7/Rb3B2/2r2PP1/5KBP/3Q4 b - - 6 28", "san": "Qd1", "frm": "b3", "to": "d1", "bestFrm": "b3", "bestTo": "b4", "best": "Qxb4", "label": "Good", "loss": 4.2, "ev": 697, "acc": 82.7, "color": "W", "num": 28}, {"fen": "2r3k1/5ppp/4p3/p7/Rb3B2/2r2PP1/5KBP/3Q4 w - - 7 29", "san": "Rac8", "frm": "a8", "to": "c8", "bestFrm": "a8", "bestTo": "c8", "best": "Rac8", "label": "Best", "loss": 0, "ev": 786, "acc": 100.0, "color": "B", "num": 28}, {"fen": "2r3k1/5ppp/4p3/p7/Rb3BP1/2r2P2/5KBP/3Q4 b - - 0 29", "san": "g4", "frm": "g3", "to": "g4", "bestFrm": "g2", "bestTo": "f1", "best": "Bf1", "label": "Excellent", "loss": 1.2, "ev": 728, "acc": 94.9, "color": "W", "num": 29}, {"fen": "2r3k1/5ppp/4p3/p7/Rb3BP1/5P2/2r2KBP/3Q4 w - - 1 30", "san": "Rc2+", "frm": "c3", "to": "c2", "bestFrm": "e6", "bestTo": "e5", "best": "e5", "label": "Excellent", "loss": 0.4, "ev": 746, "acc": 98.3, "color": "B", "num": 29}, {"fen": "2r3k1/5ppp/4p3/p7/Rb3BP1/5PK1/2r3BP/3Q4 b - - 2 30", "san": "Kg3", "frm": "f2", "to": "g3", "bestFrm": "f2", "bestTo": "g3", "best": "Kg3", "label": "Best", "loss": 0, "ev": 751, "acc": 100.0, "color": "W", "num": 30}, {"fen": "2r3k1/5ppp/4p3/p7/Rb3BP1/5PK1/6BP/2rQ4 w - - 3 31", "san": "Rc1", "frm": "c2", "to": "c1", "bestFrm": "f7", "bestTo": "f6", "best": "f6", "label": "Good", "loss": 3.4, "ev": 992, "acc": 85.8, "color": "B", "num": 30}, {"fen": "2r3k1/5ppp/4p3/p7/Rb4P1/5PK1/6BP/2BQ4 b - - 0 31", "san": "Bxc1", "frm": "f4", "to": "c1", "bestFrm": "f4", "bestTo": "c1", "best": "Bxc1", "label": "Best", "loss": 0, "ev": 1002, "acc": 100.0, "color": "W", "num": 31}]}];
+const PIECES = {"wp": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PHBhdGggZD0iTTIyLjUgOWMtMi4yMSAwLTQgMS43OS00IDQgMCAuODkuMjkgMS43MS43OCAyLjM4QzE3LjMzIDE2LjUgMTYgMTguNTkgMTYgMjFjMCAyLjAzLjk0IDMuODQgMi40MSA1LjAzLTMgMS4wNi03LjQxIDUuNTUtNy40MSAxMy40N2gyM2MwLTcuOTItNC40MS0xMi40MS03LjQxLTEzLjQ3IDEuNDctMS4xOSAyLjQxLTMgMi40MS01LjAzIDAtMi40MS0xLjMzLTQuNS0zLjI4LTUuNjIuNDktLjY3Ljc4LTEuNDkuNzgtMi4zOCAwLTIuMjEtMS43OS00LTQtNHoiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==", "wb": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxnIGZpbGw9IiNmZmYiIHN0cm9rZS1saW5lY2FwPSJidXR0Ij48cGF0aCBkPSJNOSAzNmMzLjM5LS45NyAxMC4xMS40MyAxMy41LTIgMy4zOSAyLjQzIDEwLjExIDEuMDMgMTMuNSAyIDAgMCAxLjY1LjU0IDMgMi0uNjguOTctMS42NS45OS0zIC41LTMuMzktLjk3LTEwLjExLjQ2LTEzLjUtMS0zLjM5IDEuNDYtMTAuMTEuMDMtMTMuNSAxLTEuMzU0LjQ5LTIuMzIzLjQ3LTMtLjUgMS4zNTQtMS45NCAzLTIgMy0yeiIvPjxwYXRoIGQ9Ik0xNSAzMmMyLjUgMi41IDEyLjUgMi41IDE1IDAgLjUtMS41IDAtMiAwLTIgMC0yLjUtMi41LTQtMi41LTQgNS41LTEuNSA2LTExLjUtNS0xNS41LTExIDQtMTAuNSAxNC01IDE1LjUgMCAwLTIuNSAxLjUtMi41IDQgMCAwLS41LjUgMCAyeiIvPjxwYXRoIGQ9Ik0yNSA4YTIuNSAyLjUgMCAxIDEtNSAwIDIuNSAyLjUgMCAxIDEgNSAweiIvPjwvZz48cGF0aCBkPSJNMTcuNSAyNmgxME0xNSAzMGgxNW0tNy41LTE0LjV2NU0yMCAxOGg1IiBzdHJva2UtbGluZWpvaW49Im1pdGVyIi8+PC9nPjwvc3ZnPg==", "wn": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMiAxMGMxMC41IDEgMTYuNSA4IDE2IDI5SDE1YzAtOSAxMC02LjUgOC0yMSIgZmlsbD0iI2ZmZiIvPjxwYXRoIGQ9Ik0yNCAxOGMuMzggMi45MS01LjU1IDcuMzctOCA5LTMgMi0yLjgyIDQuMzQtNSA0LTEuMDQyLS45NCAxLjQxLTMuMDQgMC0zLTEgMCAuMTkgMS4yMy0xIDItMSAwLTQuMDAzIDEtNC00IDAtMiA2LTEyIDYtMTJzMS44OS0xLjkgMi0zLjVjLS43My0uOTk0LS41LTItLjUtMyAxLTEgMyAyLjUgMyAyLjVoMnMuNzgtMS45OTIgMi41LTNjMSAwIDEgMyAxIDMiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNOS41IDI1LjVhLjUuNSAwIDEgMS0xIDAgLjUuNSAwIDEgMSAxIDB6bTUuNDMzLTkuNzVhLjUgMS41IDMwIDEgMS0uODY2LS41LjUgMS41IDMwIDEgMSAuODY2LjV6IiBmaWxsPSIjMDAwIi8+PC9nPjwvc3ZnPg==", "wr": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0iI2ZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik05IDM5aDI3di0zSDl2M3ptMy0zdi00aDIxdjRIMTJ6bS0xLTIyVjloNHYyaDVWOWg1djJoNVY5aDR2NSIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiLz48cGF0aCBkPSJNMzQgMTRsLTMgM0gxNGwtMy0zIi8+PHBhdGggZD0iTTMxIDE3djEyLjVIMTRWMTciIHN0cm9rZS1saW5lY2FwPSJidXR0IiBzdHJva2UtbGluZWpvaW49Im1pdGVyIi8+PHBhdGggZD0iTTMxIDI5LjVsMS41IDIuNWgtMjBsMS41LTIuNSIvPjxwYXRoIGQ9Ik0xMSAxNGgyMyIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIvPjwvZz48L3N2Zz4=", "wq": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0iI2ZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik04IDEyYTIgMiAwIDEgMS00IDAgMiAyIDAgMSAxIDQgMHptMTYuNS00LjVhMiAyIDAgMSAxLTQgMCAyIDIgMCAxIDEgNCAwek00MSAxMmEyIDIgMCAxIDEtNCAwIDIgMiAwIDEgMSA0IDB6TTE2IDguNWEyIDIgMCAxIDEtNCAwIDIgMiAwIDEgMSA0IDB6TTMzIDlhMiAyIDAgMSAxLTQgMCAyIDIgMCAxIDEgNCAweiIvPjxwYXRoIGQ9Ik05IDI2YzguNS0xLjUgMjEtMS41IDI3IDBsMi0xMi03IDExVjExbC01LjUgMTMuNS0zLTE1LTMgMTUtNS41LTE0VjI1TDcgMTRsMiAxMnoiIHN0cm9rZS1saW5lY2FwPSJidXR0Ii8+PHBhdGggZD0iTTkgMjZjMCAyIDEuNSAyIDIuNSA0IDEgMS41IDEgMSAuNSAzLjUtMS41IDEtMS41IDIuNS0xLjUgMi41LTEuNSAxLjUuNSAyLjUuNSAyLjUgNi41IDEgMTYuNSAxIDIzIDAgMCAwIDEuNS0xIDAtMi41IDAgMCAuNS0xLjUtMS0yLjUtLjUtMi41LS41LTIgLjUtMy41IDEtMiAyLjUtMiAyLjUtNC04LjUtMS41LTE4LjUtMS41LTI3IDB6IiBzdHJva2UtbGluZWNhcD0iYnV0dCIvPjxwYXRoIGQ9Ik0xMS41IDMwYzMuNS0xIDE4LjUtMSAyMiAwTTEyIDMzLjVjNi0xIDE1LTEgMjEgMCIgZmlsbD0ibm9uZSIvPjwvZz48L3N2Zz4=", "wk": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMi41IDExLjYzVjZNMjAgOGg1IiBzdHJva2UtbGluZWpvaW49Im1pdGVyIi8+PHBhdGggZD0iTTIyLjUgMjVzNC41LTcuNSAzLTEwLjVjMCAwLTEtMi41LTMtMi41cy0zIDIuNS0zIDIuNWMtMS41IDMgMyAxMC41IDMgMTAuNSIgZmlsbD0iI2ZmZiIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiLz48cGF0aCBkPSJNMTEuNSAzN2M1LjUgMy41IDE1LjUgMy41IDIxIDB2LTdzOS00LjUgNi0xMC41Yy00LTYuNS0xMy41LTMuNS0xNiA0VjI3di0zLjVjLTMuNS03LjUtMTMtMTAuNS0xNi00LTMgNiA1IDEwIDUgMTBWMzd6IiBmaWxsPSIjZmZmIi8+PHBhdGggZD0iTTExLjUgMzBjNS41LTMgMTUuNS0zIDIxIDBtLTIxIDMuNWM1LjUtMyAxNS41LTMgMjEgMG0tMjEgMy41YzUuNS0zIDE1LjUtMyAyMSAwIi8+PC9nPjwvc3ZnPg==", "bp": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PHBhdGggZD0iTTIyLjUgOWMtMi4yMSAwLTQgMS43OS00IDQgMCAuODkuMjkgMS43MS43OCAyLjM4QzE3LjMzIDE2LjUgMTYgMTguNTkgMTYgMjFjMCAyLjAzLjk0IDMuODQgMi40MSA1LjAzLTMgMS4wNi03LjQxIDUuNTUtNy40MSAxMy40N2gyM2MwLTcuOTItNC40MS0xMi40MS03LjQxLTEzLjQ3IDEuNDctMS4xOSAyLjQxLTMgMi40MS01LjAzIDAtMi40MS0xLjMzLTQuNS0zLjI4LTUuNjIuNDktLjY3Ljc4LTEuNDkuNzgtMi4zOCAwLTIuMjEtMS43OS00LTQtNHoiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==", "bb": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxnIGZpbGw9IiMwMDAiIHN0cm9rZS1saW5lY2FwPSJidXR0Ij48cGF0aCBkPSJNOSAzNmMzLjM5LS45NyAxMC4xMS40MyAxMy41LTIgMy4zOSAyLjQzIDEwLjExIDEuMDMgMTMuNSAyIDAgMCAxLjY1LjU0IDMgMi0uNjguOTctMS42NS45OS0zIC41LTMuMzktLjk3LTEwLjExLjQ2LTEzLjUtMS0zLjM5IDEuNDYtMTAuMTEuMDMtMTMuNSAxLTEuMzU0LjQ5LTIuMzIzLjQ3LTMtLjUgMS4zNTQtMS45NCAzLTIgMy0yeiIvPjxwYXRoIGQ9Ik0xNSAzMmMyLjUgMi41IDEyLjUgMi41IDE1IDAgLjUtMS41IDAtMiAwLTIgMC0yLjUtMi41LTQtMi41LTQgNS41LTEuNSA2LTExLjUtNS0xNS41LTExIDQtMTAuNSAxNC01IDE1LjUgMCAwLTIuNSAxLjUtMi41IDQgMCAwLS41LjUgMCAyeiIvPjxwYXRoIGQ9Ik0yNSA4YTIuNSAyLjUgMCAxIDEtNSAwIDIuNSAyLjUgMCAxIDEgNSAweiIvPjwvZz48cGF0aCBkPSJNMTcuNSAyNmgxME0xNSAzMGgxNW0tNy41LTE0LjV2NU0yMCAxOGg1IiBzdHJva2U9IiNlY2VjZWMiIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiLz48L2c+PC9zdmc+", "bn": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMiAxMGMxMC41IDEgMTYuNSA4IDE2IDI5SDE1YzAtOSAxMC02LjUgOC0yMSIgZmlsbD0iIzAwMCIvPjxwYXRoIGQ9Ik0yNCAxOGMuMzggMi45MS01LjU1IDcuMzctOCA5LTMgMi0yLjgyIDQuMzQtNSA0LTEuMDQyLS45NCAxLjQxLTMuMDQgMC0zLTEgMCAuMTkgMS4yMy0xIDItMSAwLTQuMDAzIDEtNC00IDAtMiA2LTEyIDYtMTJzMS44OS0xLjkgMi0zLjVjLS43My0uOTk0LS41LTItLjUtMyAxLTEgMyAyLjUgMyAyLjVoMnMuNzgtMS45OTIgMi41LTNjMSAwIDEgMyAxIDMiIGZpbGw9IiMwMDAiLz48cGF0aCBkPSJNOS41IDI1LjVhLjUuNSAwIDEgMS0xIDAgLjUuNSAwIDEgMSAxIDB6bTUuNDMzLTkuNzVhLjUgMS41IDMwIDEgMS0uODY2LS41LjUgMS41IDMwIDEgMSAuODY2LjV6IiBmaWxsPSIjZWNlY2VjIiBzdHJva2U9IiNlY2VjZWMiLz48cGF0aCBkPSJNMjQuNTUgMTAuNGwtLjQ1IDEuNDUuNS4xNWMzLjE1IDEgNS42NSAyLjQ5IDcuOSA2Ljc1UzM1Ljc1IDI5LjA2IDM1LjI1IDM5bC0uMDUuNWgyLjI1bC4wNS0uNWMuNS0xMC4wNi0uODgtMTYuODUtMy4yNS0yMS4zNC0yLjM3LTQuNDktNS43OS02LjY0LTkuMTktNy4xNmwtLjUxLS4xeiIgZmlsbD0iI2VjZWNlYyIgc3Ryb2tlPSJub25lIi8+PC9nPjwvc3ZnPg==", "br": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik05IDM5aDI3di0zSDl2M3ptMy41LTdsMS41LTIuNWgxN2wxLjUgMi41aC0yMHptLS41IDR2LTRoMjF2NEgxMnoiIHN0cm9rZS1saW5lY2FwPSJidXR0Ii8+PHBhdGggZD0iTTE0IDI5LjV2LTEzaDE3djEzSDE0eiIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiLz48cGF0aCBkPSJNMTQgMTYuNUwxMSAxNGgyM2wtMyAyLjVIMTR6TTExIDE0VjloNHYyaDVWOWg1djJoNVY5aDR2NUgxMXoiIHN0cm9rZS1saW5lY2FwPSJidXR0Ii8+PHBhdGggZD0iTTEyIDM1LjVoMjFtLTIwLTRoMTltLTE4LTJoMTdtLTE3LTEzaDE3TTExIDE0aDIzIiBmaWxsPSJub25lIiBzdHJva2U9IiNlY2VjZWMiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIvPjwvZz48L3N2Zz4=", "bq": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxnIHN0cm9rZT0ibm9uZSI+PGNpcmNsZSBjeD0iNiIgY3k9IjEyIiByPSIyLjc1Ii8+PGNpcmNsZSBjeD0iMTQiIGN5PSI5IiByPSIyLjc1Ii8+PGNpcmNsZSBjeD0iMjIuNSIgY3k9IjgiIHI9IjIuNzUiLz48Y2lyY2xlIGN4PSIzMSIgY3k9IjkiIHI9IjIuNzUiLz48Y2lyY2xlIGN4PSIzOSIgY3k9IjEyIiByPSIyLjc1Ii8+PC9nPjxwYXRoIGQ9Ik05IDI2YzguNS0xLjUgMjEtMS41IDI3IDBsMi41LTEyLjVMMzEgMjVsLS4zLTE0LjEtNS4yIDEzLjYtMy0xNC41LTMgMTQuNS01LjItMTMuNkwxNCAyNSA2LjUgMTMuNSA5IDI2eiIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiLz48cGF0aCBkPSJNOSAyNmMwIDIgMS41IDIgMi41IDQgMSAxLjUgMSAxIC41IDMuNS0xLjUgMS0xLjUgMi41LTEuNSAyLjUtMS41IDEuNS41IDIuNS41IDIuNSA2LjUgMSAxNi41IDEgMjMgMCAwIDAgMS41LTEgMC0yLjUgMCAwIC41LTEuNS0xLTIuNS0uNS0yLjUtLjUtMiAuNS0zLjUgMS0yIDIuNS0yIDIuNS00LTguNS0xLjUtMTguNS0xLjUtMjcgMHoiIHN0cm9rZS1saW5lY2FwPSJidXR0Ii8+PHBhdGggZD0iTTExIDM4LjVhMzUgMzUgMSAwIDAgMjMgMCIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9ImJ1dHQiLz48cGF0aCBkPSJNMTEgMjlhMzUgMzUgMSAwIDEgMjMgMG0tMjEuNSAyLjVoMjBtLTIxIDNhMzUgMzUgMSAwIDAgMjIgMG0tMjMgM2EzNSAzNSAxIDAgMCAyNCAwIiBmaWxsPSJub25lIiBzdHJva2U9IiNlY2VjZWMiLz48L2c+PC9zdmc+", "bk": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMi41IDExLjYzVjYiIHN0cm9rZS1saW5lam9pbj0ibWl0ZXIiLz48cGF0aCBkPSJNMjIuNSAyNXM0LjUtNy41IDMtMTAuNWMwIDAtMS0yLjUtMy0yLjVzLTMgMi41LTMgMi41Yy0xLjUgMyAzIDEwLjUgMyAxMC41IiBmaWxsPSIjMDAwIiBzdHJva2UtbGluZWNhcD0iYnV0dCIgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIvPjxwYXRoIGQ9Ik0xMS41IDM3YzUuNSAzLjUgMTUuNSAzLjUgMjEgMHYtN3M5LTQuNSA2LTEwLjVjLTQtNi41LTEzLjUtMy41LTE2IDRWMjd2LTMuNWMtMy41LTcuNS0xMy0xMC41LTE2LTQtMyA2IDUgMTAgNSAxMFYzN3oiIGZpbGw9IiMwMDAiLz48cGF0aCBkPSJNMjAgOGg1IiBzdHJva2UtbGluZWpvaW49Im1pdGVyIi8+PHBhdGggZD0iTTMyIDI5LjVzOC41LTQgNi4wMy05LjY1QzM0LjE1IDE0IDI1IDE4IDIyLjUgMjQuNWwuMDEgMi4xLS4wMS0yLjFDMjAgMTggOS45MDYgMTQgNi45OTcgMTkuODVjLTIuNDk3IDUuNjUgNC44NTMgOSA0Ljg1MyA5IiBzdHJva2U9IiNlY2VjZWMiLz48cGF0aCBkPSJNMTEuNSAzMGM1LjUtMyAxNS41LTMgMjEgMG0tMjEgMy41YzUuNS0zIDE1LjUtMyAyMSAwbS0yMSAzLjVjNS41LTMgMTUuNS0zIDIxIDAiIHN0cm9rZT0iI2VjZWNlYyIvPjwvZz48L3N2Zz4="}; // cburnett piece set, GPL-2.0+ / CC BY-SA, via chessground
+let ME = "MetDeymen";
+try { ME = localStorage.getItem("gr-user") || ME; } catch(e) {}
+const ACC = [
+  {w:81.4, b:98.2, note:"Approximate accuracy from Stockfish 19 (depth 16). Chess.com gave no score for this short game."},
+  {w:73.7, b:70.3, note:"Accuracy from chess.com. Move labels from Stockfish 19 (depth 16)."}
+];
+const LABELS = [
+  ["Brilliant","!!"],["Great","!"],["Best","★"],["Excellent","👍︎"],["Good","✓"],["Book","B"],
+  ["Inaccuracy","?!"],["Mistake","?"],["Missed win","×"],["Blunder","??"]
+];
+const SYM = Object.fromEntries(LABELS);
+const SYM2 = {...SYM, "Excellent":"+"};
+const col = l => `var(--c-${l==="Missed win"?"Missed":l})`;
+const icon = (l,cls="") => `<span class="ic ${cls}" style="background:${col(l)}">${SYM2[l]}</span>`;
+const PIECE = {k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟"};
+
+let gi = 0, ply = 0;
+let retry = null; // {sel, wrong, solved, revealed, tries}
+let showArrows = true;
+try { showArrows = localStorage.getItem("gr-arrows") !== "off"; } catch(e) {}
+const ERR = ["Inaccuracy","Mistake","Blunder","Missed win"];
+const isMine = (g,p) => (p.color==="B") === (g.h.Black===ME);
+const isMyError = (g,i) => i>0 && isMine(g,g.plies[i]) && ERR.includes(g.plies[i].label);
+function applyMove(fen, frm, to){
+  const b = parseFen(fen), pc = b[frm]; delete b[frm];
+  if(!pc) return b;
+  const t = pc.toLowerCase(), df = to.charCodeAt(0)-frm.charCodeAt(0);
+  if(t==="k" && Math.abs(df)===2){ const r = frm[1], rf = df>0?"h":"a", rt = df>0?"f":"d"; b[rt+r]=b[rf+r]; delete b[rf+r]; }
+  if(t==="p" && df!==0 && !b[to]) delete b[to[0]+frm[1]];
+  b[to] = (t==="p" && (to[1]==="8"||to[1]==="1")) ? (pc===pc.toUpperCase()?"Q":"q") : pc;
+  return b;
+}
+function sqFromClick(e){
+  const r = document.getElementById("board").getBoundingClientRect();
+  let f = Math.floor((e.clientX-r.left)/r.width*8), rk = 7-Math.floor((e.clientY-r.top)/r.height*8);
+  if(flip){ f = 7-f; rk = 7-rk; }
+  if(f<0||f>7||rk<0||rk>7) return null;
+  return String.fromCharCode(97+f)+(rk+1);
+}
+let flip = true; // set per game: your side at the bottom
+
+function sqXY(sq){
+  let f = sq.charCodeAt(0)-97, r = +sq[1]-1;
+  if(flip){ f = 7-f; r = 7-r; }
+  return [f*100, (7-r)*100];
+}
+function parseFen(fen){
+  const out = {}; const rows = fen.split(" ")[0].split("/");
+  rows.forEach((row,i)=>{ let f=0; for(const ch of row){ if(/\d/.test(ch)) f+=+ch; else { out[String.fromCharCode(97+f)+(8-i)] = ch; f++; } } });
+  return out;
+}
+function evalText(cp){
+  if(Math.abs(cp)>=10000) return "M";
+  return (Math.abs(cp)/100).toFixed(1);
+}
+// ---- Live engine: Stockfish 19 (lite, single-threaded WASM) in a Web Worker
+const DEPTH = 16;
+const Engine = {
+  w: null, ready: null, queue: Promise.resolve(), onLine: null,
+  start(){
+    if(this.ready) return this.ready;
+    this.ready = new Promise((res, rej) => {
+      try { this.w = new Worker("stockfish-19-lite-single.js"); } catch(e){ rej(e); return; }
+      this.w.onmessage = e => { const line = typeof e.data === "string" ? e.data : ""; if(line==="uciok") this.w.postMessage("isready"); else if(line==="readyok" && !this.ok){ this.ok=true; res(); } else if(this.onLine) this.onLine(line); };
+      this.w.onerror = err => rej(err);
+      this.w.postMessage("uci");
+    });
+    return this.ready;
+  },
+  analyse(fen, depth, multipv, progress){
+    const job = async () => {
+      await this.start();
+      return new Promise(res => {
+        const lines = {};
+        this.onLine = line => {
+          if(line.startsWith("info") && line.includes(" pv ")){
+            const d = +(/ depth (\d+)/.exec(line)||[])[1], k = +((/ multipv (\d+)/.exec(line)||[0,1])[1]);
+            const sc = / score (cp|mate) (-?\d+)/.exec(line); const pv = / pv (\S+)/.exec(line);
+            if(sc && pv){ const v=+sc[2]; lines[k] = {cp: sc[1]==="mate" ? (v>0?10000:-10000) : v, move: pv[1], depth:d}; }
+            if(progress && d) progress(d);
+          } else if(line.startsWith("bestmove")){ this.onLine=null; res(Object.keys(lines).sort().map(k=>lines[k])); }
+        };
+        this.w.postMessage("setoption name MultiPV value "+multipv);
+        this.w.postMessage("position fen "+fen);
+        this.w.postMessage("go depth "+depth);
+      });
+    };
+    const p = this.queue.then(job, job); this.queue = p.catch(()=>{}); return p;
+  }
+};
+const winp = cp => 50 + 50*(2/(1+Math.exp(-0.00368208*cp))-1);
+const beforeCache = {};
+async function scoreGuess(beforeFen, uci, storedBestUci, progress){
+  const key = gi+":"+beforeFen;
+  if(!beforeCache[key]) beforeCache[key] = Engine.analyse(beforeFen, DEPTH, 2, d=>progress(d, 1));
+  const A = await beforeCache[key];
+  const best = A[0], second = A[1];
+  const isBest = uci===best.move || uci===storedBestUci;
+  const ch = new Chess(beforeFen); const mover = ch.turn();
+  ch.move({from:uci.slice(0,2), to:uci.slice(2,4), promotion:"q"});
+  let after;
+  if(ch.in_checkmate()) after = 10000;
+  else if(ch.in_draw() || ch.in_stalemate()) after = 0;
+  else if(uci===best.move) after = best.cp;
+  else { const B = await Engine.analyse(ch.fen(), DEPTH, 1, d=>progress(d, 2)); after = -B[0].cp; }
+  const loss = isBest ? 0 : Math.max(0, winp(best.cp) - winp(after));
+  let label;
+  if(isBest) label = (second && winp(best.cp)-winp(second.cp) >= 10) ? "Great" : "Best";
+  else if(loss<2) label="Excellent"; else if(loss<5) label="Good"; else if(loss<10) label="Inaccuracy";
+  else if(loss<20) label="Mistake"; else label="Blunder";
+  if(label!=="Blunder" && best.cp>=300 && after<150) label = "Missed win";
+  const evWhite = mover==="w" ? after : -after;
+  return {label, loss: Math.round(loss*10)/10, ev: evWhite, fenAfter: ch.fen()};
+}
+function phrase(label){
+  return label==="Missed win" ? "a missed win" : label==="Best" ? "the best move" : label==="Great" ? "a great move" :
+    (["Excellent","Inaccuracy"].includes(label) ? "an " : "a ") + label.toLowerCase();
+}
+function uciOf(p){ return p.bestFrm + p.bestTo; }
+
+function arrowSvg(frm,to){
+  const [x1,y1]=sqXY(frm), [x2,y2]=sqXY(to);
+  const ax=x1+50, ay=y1+50, bx=x2+50, by=y2+50, a=Math.atan2(by-ay,bx-ax);
+  const ex=bx-Math.cos(a)*32, ey=by-Math.sin(a)*32;
+  return `<g opacity=".8" pointer-events="none"><line x1="${ax}" y1="${ay}" x2="${ex}" y2="${ey}" stroke="#81b64c" stroke-width="20" stroke-linecap="round"/>`+
+    `<polygon points="${bx-Math.cos(a)*6},${by-Math.sin(a)*6} ${ex+Math.cos(a+1.57)*26},${ey+Math.sin(a+1.57)*26} ${ex+Math.cos(a-1.57)*26},${ey+Math.sin(a-1.57)*26}" fill="#81b64c"/></g>`;
+}
+function badgeSvg(sq,label){
+  const [x,y]=sqXY(sq);
+  return `<g transform="translate(${x+82},${y+18})" pointer-events="none"><circle r="19" fill="${col(label)}" stroke="#fff" stroke-width="3"/>`+
+    `<text y="7" font-size="${SYM2[label].length>1?17:20}" font-weight="800" text-anchor="middle" fill="#fff" font-family="var(--body)">${SYM2[label]}</text></g>`;
+}
+function drawBoard(){
+  const g = GAMES[gi], p = g.plies[ply];
+  let pcs, hl = [], extra = "";
+  if(retry){
+    const prev = g.plies[ply-1];
+    if(retry.revealed){
+      const ch = new Chess(prev.fen); ch.move({from:p.bestFrm, to:p.bestTo, promotion:"q"});
+      pcs = parseFen(ch.fen()); hl = [[p.bestFrm,"var(--hl)"],[p.bestTo,"var(--hl)"]];
+      extra = badgeSvg(p.bestTo, "Best");
+    } else if(retry.guess){
+      pcs = parseFen(retry.guess.fenAfter || retry.guess.fenPreview);
+      hl = [[retry.guess.from,"var(--hl)"],[retry.guess.to,"var(--hl)"]];
+      if(retry.guess.label && !retry.guess.error) extra = badgeSvg(retry.guess.to, retry.guess.label);
+    } else {
+      pcs = parseFen(prev.fen);
+      if(ply-1>0) hl = [[prev.frm,"var(--hl)"],[prev.to,"var(--hl)"]];
+      if(retry.illegal) hl.push([retry.illegal.from,"rgba(250,65,45,.45)"],[retry.illegal.to,"rgba(250,65,45,.45)"]);
+      if(retry.sel){
+        hl.push([retry.sel,"rgba(80,160,255,.55)"]);
+        for(const m of new Chess(prev.fen).moves({square:retry.sel, verbose:true})){
+          const [x,y]=sqXY(m.to);
+          extra += pcs[m.to] ? `<circle cx="${x+50}" cy="${y+50}" r="44" fill="none" stroke="rgba(0,0,0,.22)" stroke-width="8" pointer-events="none"/>`
+                             : `<circle cx="${x+50}" cy="${y+50}" r="16" fill="rgba(0,0,0,.22)" pointer-events="none"/>`;
+        }
+      }
+    }
+  } else {
+    pcs = parseFen(p.fen);
+    if(ply>0){
+      hl = [[p.frm,"var(--hl)"],[p.to,"var(--hl)"]];
+      if(showArrows && p.san!==p.best && !["Best","Great","Book","Brilliant"].includes(p.label)) extra += arrowSvg(p.bestFrm,p.bestTo);
+      extra += badgeSvg(p.to,p.label);
+    }
+  }
+  let s = "";
+  for(let r=0;r<8;r++) for(let f=0;f<8;f++){
+    const sq = String.fromCharCode(97+f)+(r+1);
+    const [x,y] = sqXY(sq);
+    s += `<rect x="${x}" y="${y}" width="100" height="100" fill="${(f+r)%2? 'var(--light)':'var(--dark)'}"/>`;
+  }
+  for(const [sq,c] of hl){ const [x,y]=sqXY(sq); s+=`<rect x="${x}" y="${y}" width="100" height="100" fill="${c}"/>`; }
+  for(let i=0;i<8;i++){
+    const file = flip? String.fromCharCode(104-i) : String.fromCharCode(97+i);
+    const rank = flip? i+1 : 8-i;
+    s += `<text x="${i*100+92}" y="794" font-size="16" font-weight="700" text-anchor="end" fill="${i%2? 'var(--dark)':'var(--light)'}" font-family="var(--body)">${file}</text>`;
+    s += `<text x="5" y="${i*100+20}" font-size="16" font-weight="700" fill="${i%2? 'var(--light)':'var(--dark)'}" font-family="var(--body)">${rank}</text>`;
+  }
+  for(const [sq,ch] of Object.entries(pcs)){
+    const [x,y] = sqXY(sq); const key = (ch===ch.toUpperCase()?"w":"b")+ch.toLowerCase();
+    s += `<image href="${PIECES[key]}" x="${x+2}" y="${y+2}" width="96" height="96"/>`;
+  }
+  const el = document.getElementById("board");
+  el.innerHTML = s + extra;
+  el.classList.toggle("pick", !!retry && !retry.guess && !retry.revealed);
+}
+function drawEval(){
+  const vp = retry ? ply-1 : ply; const p = GAMES[gi].plies[vp]; let cp = vp? p.ev : 30;
+  if(retry && retry.guess && retry.guess.label) cp = retry.guess.ev;
+  const clamp = Math.max(-1000, Math.min(1000, cp));
+  const whitePct = 50 + 50*(2/(1+Math.exp(-0.004*clamp))-1);
+  // board is flipped: Black at bottom, so White's share fills from the top
+  const fill = document.getElementById("evalfill"), num = document.getElementById("evalnum");
+  fill.style.top = "0"; fill.style.bottom = ""; fill.style.height = whitePct+"%";
+  num.textContent = evalText(cp);
+  if(cp>=0){ num.style.top="4px"; num.style.bottom=""; num.style.color="#222"; }
+  else { num.style.bottom="4px"; num.style.top=""; num.style.color="#fff"; }
+}
+function drawChart(){
+  const g = GAMES[gi], n = g.plies.length-1, W=400, H=84;
+  const yOf = cp => { const c=Math.max(-1000,Math.min(1000,cp)); return H/2 - (H/2-4)*(2/(1+Math.exp(-0.004*c))-1); };
+  const pts = [[0,yOf(30)]].concat(g.plies.slice(1).map((p,i)=>[(i+1)/n*W, yOf(p.ev)]));
+  let s = `<line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="#6b6863" stroke-width="1"/>`;
+  s += `<path d="M0,${H} L${pts.map(p=>p.join(",")).join(" L")} L${W},${H} Z" fill="#fff" opacity=".92"/>`;
+  g.plies.forEach((p,i)=>{ if(i && ["Blunder","Mistake","Missed win","Brilliant","Great"].includes(p.label)){
+    const [x,y]=pts[i]; s+=`<circle cx="${x}" cy="${y}" r="3.5" fill="${col(p.label)}" stroke="#222" stroke-width="1"/>`; }});
+  const cx = ply/n*W; s += `<line x1="${cx}" y1="0" x2="${cx}" y2="${H}" stroke="var(--accent)" stroke-width="2"/>`;
+  const el = document.getElementById("chart"); el.innerHTML = s;
+  el.onclick = e => { const r = el.getBoundingClientRect(); go(Math.round((e.clientX-r.left)/r.width*n)); };
+}
+function nextErrorIndex(from){
+  const g = GAMES[gi], n = g.plies.length;
+  for(let k=1;k<=n;k++){ const i=(from+k)%n; if(isMyError(g,i)) return i; }
+  return -1;
+}
+function drawCoach(){
+  const g = GAMES[gi], p = g.plies[ply], el = document.getElementById("coach");
+  el.classList.toggle("retry", !!retry);
+  const mn = p ? p.num + (p.color==="W"?". ":"... ") : "";
+  if(retry){
+    const side = p.color==="W" ? "White" : "Black";
+    const gs = retry.guess;
+    let head, sub = "", btns;
+    if(retry.revealed){
+      head = `<b style="color:var(--c-Best)">The best move was ${p.best}.</b>`;
+      sub = `In the game you played ${mn}${p.san} (${p.label.toLowerCase()}).`;
+      btns = `<button class="cbtn go" id="cNext">Next mistake</button><button class="cbtn" id="cExit">Back to game</button>`;
+    } else if(gs && !gs.label){
+      head = `<b>Analysing ${gs.san}…</b>`;
+      sub = `<span class="spin"></span>${retry.status || "Starting the engine…"}`;
+      btns = `<button class="cbtn" id="cExit">Back to game</button>`;
+    } else if(gs && gs.error){
+      head = `<b style="color:var(--c-Blunder)">The engine could not run.</b>`;
+      sub = gs.error; btns = `<button class="cbtn" id="cAgain">Try again</button><button class="cbtn" id="cExit">Back to game</button>`;
+    } else if(gs){
+      const good = ["Best","Great"].includes(gs.label);
+      head = `<b style="color:${col(gs.label)}">${gs.san} is ${phrase(gs.label)}${good?"!":"."}</b>`;
+      sub = `Evaluation after the move: ${gs.ev>=0?"+":"−"}${evalText(gs.ev)}` + (gs.loss ? ` · Win chance lost: ${gs.loss}%` : "") +
+            ` · In the game you played ${p.san} (${p.label.toLowerCase()}).`;
+      btns = good ? `<button class="cbtn go" id="cNext">Next mistake</button><button class="cbtn" id="cExit">Back to game</button>`
+                  : `<button class="cbtn go" id="cAgain">Try again</button><button class="cbtn" id="cShow">Show answer</button><button class="cbtn" id="cExit">Back to game</button>`;
+    } else {
+      head = `<b>Retry: find a better move for ${side}</b>`;
+      sub = retry.illegal ? `<span style="color:var(--c-Blunder)">${retry.illegal.msg}</span>` :
+            `In the game you played ${p.san}. Click one of your pieces, then a highlighted square.`;
+      btns = `<button class="cbtn" id="cShow">Show answer</button><button class="cbtn" id="cExit">Back to game</button>`;
+    }
+    const tries = retry.attempts.length ? `<div class="tries">${retry.attempts.map((a,i)=>`<div>Try ${i+1}: ${icon(a.label)} ${a.san} <span class="sub" style="display:inline">${a.label}</span></div>`).join("")}</div>` : "";
+    el.innerHTML = `${icon(gs&&gs.label ? gs.label : (retry.revealed?"Best":p.label))}<div style="flex:1">${head}<span class="sub">${sub}</span>${tries}<div class="cbtns">${btns}</div></div>`;
+    const b = id => document.getElementById(id);
+    if(b("cExit")) b("cExit").onclick = () => { retry=null; redraw(); };
+    if(b("cShow")) b("cShow").onclick = () => { retry.revealed=true; retry.guess=null; redraw(); };
+    if(b("cAgain")) b("cAgain").onclick = () => { retry.guess=null; retry.sel=null; retry.illegal=null; redraw(); };
+    if(b("cNext")) b("cNext").onclick = () => practiceNext();
+    return;
+  }
+  if(ply===0){ el.innerHTML = `<span class="ic" style="background:var(--accent)">★</span><div><b>${g.h.White} vs ${g.h.Black}</b><span class="sub">${[g.h.ECO, tcText(g.h.TimeControl), g.h.Date].filter(Boolean).join(" · ")} · Result ${g.h.Result}. Step through the moves with ◀ ▶ or the arrow keys.</span></div>`; return; }
+  const who = isMine(g,p) ? "You" : "Opponent";
+  let line = `${mn}${p.san} is ${p.label==="Missed win"?"a missed win":p.label==="Excellent"||p.label==="Inaccuracy"?"an "+p.label.toLowerCase():p.label==="Book"?"a book move":p.label==="Best"?"best":"a "+p.label.toLowerCase()}`;
+  let sub = `${who} · Evaluation after the move: ${p.ev>=0?"+":"−"}${evalText(p.ev)}`;
+  const mine = isMyError(g,ply);
+  if(p.san!==p.best && p.label!=="Book" && (showArrows || !mine)) sub += ` · Best was <b style="display:inline;color:var(--accent)">${p.best}</b>`;
+  const btn = mine ? `<div class="cbtns"><button class="cbtn go" id="cRetry">Retry this move</button></div>` : "";
+  el.innerHTML = `${icon(p.label)}<div style="flex:1"><b style="color:${col(p.label)}">${line}</b><span class="sub">${sub}</span>${btn}</div>`;
+  if(mine) document.getElementById("cRetry").onclick = startRetry;
+}
+function startRetry(){
+  retry = {sel:null, illegal:null, guess:null, revealed:false, attempts:[]}; redraw();
+  // warm up: start the engine and analyse the position in the background
+  const g = GAMES[gi]; const fen = g.plies[ply-1].fen, key = gi+":"+fen;
+  if(!beforeCache[key]) beforeCache[key] = Engine.analyse(fen, DEPTH, 2);
+  beforeCache[key].catch(()=>{ delete beforeCache[key]; });
+}
+function practiceNext(){
+  const i = nextErrorIndex(ply);
+  if(i<0){ retry=null; redraw(); return; }
+  retry = null; go(i); startRetry();
+}
+function redraw(){ drawBoard(); drawEval(); drawCoach(); }
+function drawStatic(){
+  const g = GAMES[gi], h = g.h, a = g.acc;
+  const pl = (name, elo, side) => `<span class="av ${side}"><img src="${PIECES[side+"k"]}" alt="" width="28" height="28"></span>${name} <span class="rt">(${elo})</span>${name===ME?'<span class="you">YOU</span>':''}`;
+  document.getElementById("ptop").innerHTML = pl(h.White,h.WhiteElo,"w");
+  document.getElementById("pbot").innerHTML = pl(h.Black,h.BlackElo,"b");
+  document.getElementById("acc").innerHTML =
+    `<span></span><span class="hd">${h.White}</span><span class="hd">${h.Black}</span>`+
+    `<span>Accuracy</span><span class="accbox w">${a.w.toFixed(1)}</span><span class="accbox b">${a.b.toFixed(1)}</span>`+
+    `<span class="accnote">${a.note}</span>`;
+  const cnt = side => { const c={}; g.plies.slice(1).filter(p=>p.color===side).forEach(p=>c[p.label]=(c[p.label]||0)+1); return c; };
+  const cw = cnt("W"), cb = cnt("B");
+  const cell = l => `${icon(l)}<span style="color:${col(l)}">${l}</span><span class="n ${cw[l]?'':'zero'}">${cw[l]||0}</span><span class="n ${cb[l]?'':'zero'}">${cb[l]||0}</span>`;
+  const hdr = `<span></span><span></span><span class="hd">W</span><span class="hd">B</span>`;
+  let c = hdr+hdr; for(let i=0;i<5;i++) c += cell(LABELS[i][0]) + cell(LABELS[i+5][0]);
+  document.getElementById("counts").innerHTML = c;
+  let m = "";
+  for(let i=1;i<g.plies.length;i+=2){
+    const w = g.plies[i], b = g.plies[i+1];
+    m += `<span class="no">${w.num}.</span>`;
+    m += `<button class="mv" data-p="${i}">${icon(w.label)}${w.san}</button>`;
+    m += b ? `<button class="mv" data-p="${i+1}">${icon(b.label)}${b.san}</button>` : `<span></span>`;
+  }
+  document.getElementById("moves").innerHTML = m;
+  document.querySelectorAll(".mv").forEach(b=>b.onclick=()=>go(+b.dataset.p));
+  document.getElementById("link").innerHTML = h.Link ? `<a href="${h.Link}">Open this game on chess.com</a>` : "";
+  document.getElementById("gamePick").value = gi;
+}
+function go(n){
+  retry = null;
+  const max = GAMES[gi].plies.length-1; ply = Math.max(0, Math.min(max, n));
+  drawBoard(); drawEval(); drawChart(); drawCoach();
+  document.querySelectorAll(".mv").forEach(b=>b.classList.toggle("cur", +b.dataset.p===ply));
+  const cur = document.querySelector(".mv.cur"), box = document.getElementById("moves");
+  if(cur){ const top = cur.offsetTop - box.offsetTop; if(top < box.scrollTop || top > box.scrollTop + box.clientHeight - 30) box.scrollTop = top - box.clientHeight/2; }
+  else box.scrollTop = 0;
+}
+function selectGame(i){ gi=i; const h=GAMES[gi].h; flip = (h.Black===ME); drawStatic(); go(0); }
+function tcText(tc){
+  if(!tc) return "";
+  if(tc.includes("/")) return "Daily";
+  const [base, inc] = tc.split("+"); const m = Math.round(+base/60);
+  const kind = +base < 180 ? "bullet" : +base < 600 ? "blitz" : "rapid";
+  return inc && inc!=="0" ? `${m}+${inc} ${kind}` : `${m} min ${kind}`;
+}
+function resultFor(h){
+  if(h.Result==="1/2-1/2") return "Draw";
+  const won = (h.Black===ME && h.Result==="0-1") || (h.White===ME && h.Result==="1-0");
+  const lost = (h.Black===ME && h.Result==="1-0") || (h.White===ME && h.Result==="0-1");
+  return won ? "Win" : lost ? "Loss" : h.Result;
+}
+function buildPicker(){
+  document.getElementById("gamePick").innerHTML = GAMES.map((g,i)=>{
+    const h = g.h, opp = h.White===ME ? h.Black : h.Black===ME ? h.White : `${h.White} vs ${h.Black}`;
+    return `<option value="${i}">${h.Date||""} · ${resultFor(h)} vs ${opp}${tcText(h.TimeControl)?" · "+tcText(h.TimeControl):""}</option>`;
+  }).join("");
+}
+document.getElementById("gamePick").onchange = e => selectGame(+e.target.value);
+document.getElementById("bStart").onclick=()=>go(0);
+document.getElementById("bPrev").onclick=()=>go(ply-1);
+document.getElementById("bNext").onclick=()=>go(ply+1);
+document.getElementById("bEnd").onclick=()=>go(1e9);
+document.addEventListener("keydown",e=>{
+  if(e.target.closest && e.target.closest("input,textarea,select")) return;
+  if(e.key==="Escape" && retry){retry=null;redraw();}
+  if(e.key==="ArrowRight"){go(ply+1);e.preventDefault();}
+  if(e.key==="ArrowLeft"){go(ply-1);e.preventDefault();}
+  if(e.key==="Home") go(0); if(e.key==="End") go(1e9);
+});
+function syncArrowBtn(){ const b=document.getElementById("tArrows"); b.setAttribute("aria-pressed", showArrows); b.textContent = "Best-move arrows: " + (showArrows?"On":"Off"); }
+document.getElementById("tArrows").onclick = () => {
+  showArrows = !showArrows; try{ localStorage.setItem("gr-arrows", showArrows?"on":"off"); }catch(e){}
+  syncArrowBtn(); redraw();
+};
+document.getElementById("tPractice").onclick = () => practiceNext();
+const PNAME = {p:"pawn",n:"knight",b:"bishop",r:"rook",q:"queen",k:"king"};
+document.getElementById("board").addEventListener("click", e => {
+  if(!retry || retry.guess || retry.revealed) return;
+  const sq = sqFromClick(e); if(!sq) return;
+  const g = GAMES[gi], p = g.plies[ply], fen = g.plies[ply-1].fen;
+  const ch = new Chess(fen), pc = ch.get(sq);
+  if(pc && pc.color===ch.turn()){ retry.sel = (retry.sel===sq ? null : sq); retry.illegal = null; redraw(); return; }
+  if(!retry.sel){ redraw(); return; }
+  const from = retry.sel; retry.sel = null;
+  const mv = ch.move({from, to:sq, promotion:"q"});
+  if(!mv){
+    const piece = PNAME[new Chess(fen).get(from).type];
+    retry.illegal = {from, to:sq, msg: `Illegal move: the ${piece} on ${from} cannot go to ${sq}` +
+      (new Chess(fen).in_check() ? ". Your king is in check, so you must deal with the check first." : ".")};
+    redraw(); return;
+  }
+  retry.illegal = null;
+  const guess = {from, to:sq, san: mv.san, fenPreview: ch.fen()};
+  retry.guess = guess; retry.status = "Starting the engine…"; redraw();
+  const myRetry = retry;
+  scoreGuess(fen, from+sq, uciOf(p), (d, step) => {
+    if(retry!==myRetry || retry.guess!==guess) return;
+    retry.status = (step===1 ? "Analysing the position before your move" : "Analysing the position after your move") + ` · depth ${d} of ${DEPTH}`;
+    const s = document.querySelector("#coach .sub"); if(s) s.innerHTML = `<span class="spin"></span>${retry.status}`;
+  }).then(r => {
+    if(retry!==myRetry || retry.guess!==guess) return;
+    Object.assign(guess, r); retry.attempts.push({san:guess.san, label:r.label}); redraw();
+  }).catch(err => {
+    if(retry!==myRetry) return;
+    guess.label = "Blunder"; guess.error = "Stockfish failed to load in this browser. " + (err && err.message ? err.message : ""); redraw();
+  });
+});
+// ---------- Loading and analysing new games
+function sortGames(){
+  const key = g => (g.h.UTCDate||g.h.Date||"") + " " + (g.h.UTCTime||g.h.StartTime||"");
+  GAMES.sort((a,b)=> key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0);
+}
+function saveGames(){
+  try { localStorage.setItem("gr-games", JSON.stringify(GAMES.filter(g=>g.custom))); } catch(e) {}
+}
+function splitPgn(text){
+  return text.replace(/\r/g,"").split(/\n\s*\n(?=\[Event )/).map(s=>s.trim()).filter(s=>s.startsWith("["));
+}
+function headersOf(pgn){
+  const h = {}; for(const m of pgn.matchAll(/^\[(\w+)\s+"([^"]*)"\]/gm)) h[m[1]] = m[2]; return h;
+}
+let pending = []; // [{pgn, h}]
+const L = id => document.getElementById(id);
+function openLoader(){
+  L("loader").hidden = false; L("lUser").value = ME;
+  const d = new Date(); L("lMonth").value = d.toISOString().slice(0,7);
+  L("lUser").focus();
+}
+L("tLoad").onclick = openLoader;
+L("lClose").onclick = () => { L("loader").hidden = true; };
+L("lUser").onchange = () => { ME = L("lUser").value.trim() || ME; try{ localStorage.setItem("gr-user", ME); }catch(e){} };
+function apiUrl(){ const [y,m] = L("lMonth").value.split("-"); return `https://api.chess.com/pub/player/${encodeURIComponent(L("lUser").value.trim())}/games/${y}/${m}/pgn`; }
+L("lFetch").onclick = async () => {
+  const msg = L("lFetchMsg"); const url = apiUrl();
+  if(!L("lUser").value.trim() || !L("lMonth").value){ msg.className="msg err"; msg.textContent="Enter a username and a month."; return; }
+  ME = L("lUser").value.trim(); try{ localStorage.setItem("gr-user", ME); }catch(e){}
+  msg.className="msg"; msg.textContent="Fetching games from chess.com…";
+  try {
+    const r = await fetch(url); if(!r.ok) throw new Error("chess.com answered " + r.status);
+    receivePgn(await r.text(), "chess.com");
+    msg.className="msg ok"; msg.textContent = "Games fetched.";
+  } catch(e) {
+    msg.className="msg err";
+    if(/answered 404/.test(e.message)){ msg.textContent = "Chess.com has no games for that username and month. Check the spelling of the username."; return; }
+    msg.innerHTML = `This page cannot reach chess.com from here (pages inside Claude are not allowed to contact other sites). ` +
+      `Open <a href="${url}">this month's games file</a>. It downloads a .pgn file. Then drop that file in step 2.`;
+  }
+};
+L("lDrop").onclick = () => L("lFile").click();
+L("lDrop").onkeydown = e => { if(e.key==="Enter"||e.key===" "){ e.preventDefault(); L("lFile").click(); } };
+L("lFile").onchange = async e => { const f = e.target.files[0]; if(f) receivePgn(await f.text(), f.name); e.target.value=""; };
+["dragenter","dragover"].forEach(ev=>L("lDrop").addEventListener(ev, e=>{ e.preventDefault(); L("lDrop").classList.add("over"); }));
+["dragleave","drop"].forEach(ev=>L("lDrop").addEventListener(ev, e=>{ e.preventDefault(); L("lDrop").classList.remove("over"); }));
+L("lDrop").addEventListener("drop", async e => { const f = e.dataTransfer.files[0]; if(f) receivePgn(await f.text(), f.name); });
+L("lReadPaste").onclick = () => receivePgn(L("lPaste").value, "pasted text");
+function receivePgn(text, source){
+  const games = splitPgn(text).map(pgn => ({pgn, h: headersOf(pgn)}));
+  const prog = L("lProgress");
+  L("lPickStep").hidden = false;
+  if(!games.length){ L("lList").innerHTML = ""; prog.className="msg err"; prog.textContent = `No games found in the ${source}. Check that it is PGN text starting with [Event "…"].`; return; }
+  prog.className="msg"; prog.textContent = `${games.length} game${games.length>1?"s":""} found in the ${source}.`;
+  pending = games;
+  const dates = [...new Set(games.map(g=>(g.h.Date||"").replace(/\./g,"-")))].sort();
+  L("lDate").min = dates[0]; L("lDate").max = dates[dates.length-1];
+  L("lDate").value = dates[dates.length-1];
+  renderPending();
+  L("lPickStep").scrollIntoView({block:"nearest"});
+}
+L("lDate").onchange = renderPending;
+function renderPending(){
+  const day = L("lDate").value.replace(/-/g,".");
+  const rows = pending.map((g,i)=>({g,i})).filter(({g}) => !day || (g.h.Date||"")===day);
+  L("lList").innerHTML = rows.length ? rows.map(({g,i})=>{
+    const h = g.h, done = GAMES.some(x=>x.h.Link && x.h.Link===h.Link);
+    const opp = h.White===ME ? h.Black : h.Black===ME ? h.White : `${h.White} vs ${h.Black}`;
+    return `<label><input type="checkbox" data-i="${i}" ${done?"disabled":"checked"}> ${h.UTCTime||h.StartTime||""} · ${resultFor(h)} vs ${opp} · ${tcText(h.TimeControl)}${done?" · already analysed":""}</label>`;
+  }).join("") : `<p>No games on this date.</p>`;
+}
+async function analyseGame(pgn, depth, onMove){
+  const ch = new Chess();
+  const clean = pgn.replace(/\{[^}]*\}/g,"").replace(/\$\d+/g,"");
+  if(!ch.load_pgn(clean, {sloppy:true})) throw new Error("This PGN could not be read.");
+  const h = headersOf(pgn); const hist = ch.history({verbose:true});
+  const b = new Chess(h.FEN || undefined);
+  const fens = [b.fen()];
+  for(const m of hist){ b.move(m); fens.push(b.fen()); }
+  const infos = [];
+  for(let i=0;i<fens.length;i++){
+    const c = new Chess(fens[i]);
+    if(c.game_over()) infos.push(c.in_checkmate() ? [{cp:-10000, move:null}] : [{cp:0, move:null}]);
+    else infos.push(await Engine.analyse(fens[i], depth, 2));
+    onMove(i, fens.length);
+  }
+  const plies = [{fen: fens[0]}];
+  let bookOpen = true;
+  hist.forEach((m, i) => {
+    const before = infos[i], best = before[0], second = before[1];
+    const mover = m.color, uci = m.from + m.to;
+    const after = -infos[i+1][0].cp;
+    const isBest = uci === best.move?.slice(0,4);
+    const loss = isBest ? 0 : Math.max(0, winp(best.cp) - winp(after));
+    let label;
+    if(isBest) label = (second && winp(best.cp)-winp(second.cp) >= 10) ? "Great" : "Best";
+    else if(loss<2) label="Excellent"; else if(loss<5) label="Good"; else if(loss<10) label="Inaccuracy";
+    else if(loss<20) label="Mistake"; else label="Blunder";
+    if(label!=="Blunder" && best.cp>=300 && after<150) label = "Missed win";
+    if(bookOpen && i < 12 && loss < 2) label = "Book"; else bookOpen = false;
+    const bc = new Chess(fens[i]);
+    const bm = best.move ? bc.move({from:best.move.slice(0,2), to:best.move.slice(2,4), promotion: best.move[4]||"q"}) : null;
+    plies.push({fen: fens[i+1], san: m.san, frm: m.from, to: m.to,
+      bestFrm: bm ? bm.from : m.from, bestTo: bm ? bm.to : m.to, best: bm ? bm.san : m.san,
+      label, loss: Math.round(loss*10)/10, ev: mover==="w" ? after : -after,
+      acc: Math.round(Math.max(0, Math.min(100, 103.1668*Math.exp(-0.04354*loss) - 3.1669))*10)/10,
+      color: mover==="w" ? "W" : "B", num: Math.floor(i/2) + 1 + (h.FEN ? 0 : 0)});
+  });
+  const avg = side => { const a = plies.slice(1).filter(p=>p.color===side).map(p=>p.acc); return a.length ? a.reduce((x,y)=>x+y,0)/a.length : 0; };
+  return {h, plies, custom:true, acc:{w:avg("W"), b:avg("B"), note:`Approximate accuracy from Stockfish 19 (depth ${depth}), analysed in your browser.`}};
+}
+let analysing = false;
+L("lAnalyse").onclick = async () => {
+  if(analysing) return;
+  const picks = [...document.querySelectorAll("#lList input:checked")].map(x=>pending[+x.dataset.i]);
+  const prog = L("lProgress");
+  if(!picks.length){ prog.className="msg err"; prog.textContent="Select at least one game."; return; }
+  analysing = true; L("lAnalyse").disabled = true;
+  const depth = +L("lDepth").value; let lastIdx = -1;
+  try {
+    for(let k=0;k<picks.length;k++){
+      const opp = picks[k].h.White===ME ? picks[k].h.Black : picks[k].h.White;
+      const g = await analyseGame(picks[k].pgn, depth, (i,n) => {
+        prog.className="msg"; prog.innerHTML = `<span class="spin"></span>Game ${k+1} of ${picks.length} (vs ${opp}) · position ${i+1} of ${n}`;
+      });
+      GAMES.push(g); sortGames(); saveGames(); lastIdx = GAMES.indexOf(g);
+    }
+    prog.className="msg ok"; prog.textContent = `Done. ${picks.length} game${picks.length>1?"s":""} added to the game list.`;
+    buildPicker(); renderPending();
+    if(lastIdx>=0){ L("loader").hidden = true; selectGame(lastIdx); }
+  } catch(e) {
+    prog.className="msg err"; prog.textContent = "Analysis stopped: " + (e && e.message ? e.message : "the engine could not run in this browser.");
+    buildPicker();
+  } finally { analysing = false; L("lAnalyse").disabled = false; }
+};
+
+const BUILTIN_ACC = [
+  {w:81.4, b:98.2, note:"Approximate accuracy from Stockfish 19 (depth 16). Chess.com gave no score for this short game."},
+  {w:73.7, b:70.3, note:"Accuracy from chess.com. Move labels from Stockfish 19 (depth 16)."}
+];
+GAMES.forEach((g,i)=>{ g.acc = BUILTIN_ACC[i]; g.h.Date = "2026.11.10"; g.h.UTCDate = g.h.Date; g.h.UTCTime = ["17:03:48","17:06:31"][i]; g.h.TimeControl = g.h.TimeControl || "300"; });
+try { const saved = JSON.parse(localStorage.getItem("gr-games")||"[]"); for(const g of saved) if(!GAMES.some(x=>x.h.Link && x.h.Link===g.h.Link)) GAMES.push(g); } catch(e) {}
+sortGames();
+syncArrowBtn();
+buildPicker();
+selectGame(GAMES.findIndex(g=>g.h.Link==="https://www.chess.com/game/live/186927674328"));
+go(30); // open on 15...Bxd2, the key moment of the loss
+</script>
+</body>
+</html>
