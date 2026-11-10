@@ -82,7 +82,21 @@ svg.chart{width:100%;height:84px;display:block;border-radius:6px;background:#3d3
 .tries .ic{width:16px;height:16px;font-size:9px}
 .spin{display:inline-block;width:12px;height:12px;border:2px solid #666;border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:-1px;margin-right:6px}
 @keyframes sp{to{transform:rotate(360deg)}}
+#board{touch-action:none}
 #board.pick{cursor:pointer}
+.lines{background:var(--panel);border-radius:6px;padding:6px 8px;display:flex;flex-direction:column;gap:4px;font-size:13px;min-height:96px}
+.lhead{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.lbtn{background:none;border:1px solid var(--line);color:var(--muted);border-radius:4px;font:600 11px var(--body);padding:1px 8px;cursor:pointer}
+.ln{display:flex;gap:8px;align-items:center;white-space:nowrap;overflow:hidden;min-width:0}
+.ln.muted{color:var(--muted)}
+.lev{flex:none;min-width:54px;text-align:center;border-radius:3px;font-weight:700;padding:1px 4px;font-variant-numeric:tabular-nums}
+.lev.w{background:#fff;color:#222} .lev.b{background:#403d39;color:#fff}
+.pv{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.vline{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.vmv{display:flex;align-items:center;gap:4px;background:#3a3936;border:1px solid var(--line);color:var(--text);border-radius:4px;padding:2px 6px;font:600 13px var(--body);cursor:pointer}
+.vmv.cur{border-color:var(--accent)}
+.vmv .ic{width:14px;height:14px;font-size:8px}
+.vmv .spin{width:10px;height:10px;margin:0}
 .picker{display:flex;gap:6px;padding:10px 16px 0}
 .picker select{flex:1;min-width:0;background:#2f2e2b;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px;font:600 13px var(--body)}
 .panel{position:relative}
@@ -114,6 +128,7 @@ svg.chart{width:100%;height:84px;display:block;border-radius:6px;background:#3d3
 <body>
 <div class="app">
   <div class="boardwrap">
+    <div class="lines" id="lines" aria-live="polite"></div>
     <div class="player" id="ptop"></div>
     <div class="boardrow">
       <div class="evalbar" id="evalbar"><div class="fill" id="evalfill"></div><div class="num" id="evalnum"></div></div>
@@ -262,8 +277,8 @@ const Engine = {
         this.onLine = line => {
           if(line.startsWith("info") && line.includes(" pv ")){
             const d = +(/ depth (\d+)/.exec(line)||[])[1], k = +((/ multipv (\d+)/.exec(line)||[0,1])[1]);
-            const sc = / score (cp|mate) (-?\d+)/.exec(line); const pv = / pv (\S+)/.exec(line);
-            if(sc && pv){ const v=+sc[2]; lines[k] = {cp: sc[1]==="mate" ? (v>0?10000:-10000) : v, move: pv[1], depth:d}; }
+            const sc = / score (cp|mate) (-?\d+)/.exec(line); const pv = / pv (.+)$/.exec(line);
+            if(sc && pv){ const v=+sc[2], mv = pv[1].trim().split(/\s+/); lines[k] = {cp: sc[1]==="mate" ? (v>0?10000:-10000) : v, mate: sc[1]==="mate" ? v : null, move: mv[0], pv: mv, depth:d}; }
             if(progress && d) progress(d);
           } else if(line.startsWith("bestmove")){ this.onLine=null; res(Object.keys(lines).sort().map(k=>lines[k])); }
         };
@@ -299,10 +314,9 @@ async function scoreGuess(beforeFen, uci, storedBestUci, progress){
   const evWhite = mover==="w" ? after : -after;
   return {label, loss: Math.round(loss*10)/10, ev: evWhite, fenAfter: ch.fen()};
 }
-function phrase(label){
-  return label==="Missed win" ? "a missed win" : label==="Best" ? "the best move" : label==="Great" ? "a great move" :
-    (["Excellent","Inaccuracy"].includes(label) ? "an " : "a ") + label.toLowerCase();
-}
+const PHRASE = {Brilliant:"brilliant", Great:"a great move", Best:"the best move", Excellent:"excellent", Good:"good",
+  Book:"a book move", Inaccuracy:"an inaccuracy", Mistake:"a mistake", Blunder:"a blunder"};
+function verdict(san, label){ return label==="Missed win" ? `${san} misses a win` : `${san} is ${PHRASE[label]}`; }
 function uciOf(p){ return p.bestFrm + p.bestTo; }
 
 function arrowSvg(frm,to){
@@ -317,38 +331,49 @@ function badgeSvg(sq,label){
   return `<g transform="translate(${x+82},${y+18})" pointer-events="none"><circle r="19" fill="${col(label)}" stroke="#fff" stroke-width="3"/>`+
     `<text y="7" font-size="${SYM2[label].length>1?17:20}" font-weight="800" text-anchor="middle" fill="#fff" font-family="var(--body)">${SYM2[label]}</text></g>`;
 }
+// ---- What the board shows: review position, retry position, or your own line
+let vari = null;   // {base, moves:[{from,to,san,fen,before,label,ev}], idx}
+let sel = null;    // selected square
+let drag = null;   // {from, x, y, moved, wasSel, id}
+function viewFen(){
+  const g = GAMES[gi];
+  if(retry){
+    const prev = g.plies[ply-1], p = g.plies[ply];
+    if(retry.revealed){ const ch = new Chess(prev.fen); ch.move({from:p.bestFrm, to:p.bestTo, promotion:"q"}); return ch.fen(); }
+    if(retry.guess) return retry.guess.fenAfter || retry.guess.fenPreview;
+    return prev.fen;
+  }
+  if(vari) return vari.idx ? vari.moves[vari.idx-1].fen : g.plies[vari.base].fen;
+  return g.plies[ply].fen;
+}
+function canMove(){ return retry ? (!retry.guess && !retry.revealed) : true; }
+function legalTargets(from){ return new Chess(viewFen()).moves({square:from, verbose:true}).map(m=>m.to); }
 function drawBoard(){
   const g = GAMES[gi], p = g.plies[ply];
-  let pcs, hl = [], extra = "";
+  const pcs = parseFen(viewFen());
+  let hl = [], extra = "";
   if(retry){
     const prev = g.plies[ply-1];
-    if(retry.revealed){
-      const ch = new Chess(prev.fen); ch.move({from:p.bestFrm, to:p.bestTo, promotion:"q"});
-      pcs = parseFen(ch.fen()); hl = [[p.bestFrm,"var(--hl)"],[p.bestTo,"var(--hl)"]];
-      extra = badgeSvg(p.bestTo, "Best");
-    } else if(retry.guess){
-      pcs = parseFen(retry.guess.fenAfter || retry.guess.fenPreview);
+    if(retry.revealed){ hl = [[p.bestFrm,"var(--hl)"],[p.bestTo,"var(--hl)"]]; extra = badgeSvg(p.bestTo, "Best"); }
+    else if(retry.guess){
       hl = [[retry.guess.from,"var(--hl)"],[retry.guess.to,"var(--hl)"]];
       if(retry.guess.label && !retry.guess.error) extra = badgeSvg(retry.guess.to, retry.guess.label);
-    } else {
-      pcs = parseFen(prev.fen);
-      if(ply-1>0) hl = [[prev.frm,"var(--hl)"],[prev.to,"var(--hl)"]];
-      if(retry.illegal) hl.push([retry.illegal.from,"rgba(250,65,45,.45)"],[retry.illegal.to,"rgba(250,65,45,.45)"]);
-      if(retry.sel){
-        hl.push([retry.sel,"rgba(80,160,255,.55)"]);
-        for(const m of new Chess(prev.fen).moves({square:retry.sel, verbose:true})){
-          const [x,y]=sqXY(m.to);
-          extra += pcs[m.to] ? `<circle cx="${x+50}" cy="${y+50}" r="44" fill="none" stroke="rgba(0,0,0,.22)" stroke-width="8" pointer-events="none"/>`
-                             : `<circle cx="${x+50}" cy="${y+50}" r="16" fill="rgba(0,0,0,.22)" pointer-events="none"/>`;
-        }
-      }
-    }
-  } else {
-    pcs = parseFen(p.fen);
-    if(ply>0){
-      hl = [[p.frm,"var(--hl)"],[p.to,"var(--hl)"]];
-      if(showArrows && p.san!==p.best && !["Best","Great","Book","Brilliant"].includes(p.label)) extra += arrowSvg(p.bestFrm,p.bestTo);
-      extra += badgeSvg(p.to,p.label);
+    } else if(ply-1>0) hl = [[prev.frm,"var(--hl)"],[prev.to,"var(--hl)"]];
+  } else if(vari){
+    const m = vari.idx ? vari.moves[vari.idx-1] : null, b = g.plies[vari.base];
+    if(m){ hl = [[m.from,"var(--hl)"],[m.to,"var(--hl)"]]; if(m.label) extra = badgeSvg(m.to, m.label); }
+    else if(vari.base>0){ hl = [[b.frm,"var(--hl)"],[b.to,"var(--hl)"]]; extra = badgeSvg(b.to, b.label); }
+  } else if(ply>0){
+    hl = [[p.frm,"var(--hl)"],[p.to,"var(--hl)"]];
+    if(showArrows && p.san!==p.best && !["Best","Great","Book","Brilliant"].includes(p.label)) extra += arrowSvg(p.bestFrm,p.bestTo);
+    extra += badgeSvg(p.to,p.label);
+  }
+  if(sel){
+    hl.push([sel,"rgba(80,160,255,.5)"]);
+    for(const to of legalTargets(sel)){
+      const [x,y]=sqXY(to);
+      extra += pcs[to] ? `<circle cx="${x+50}" cy="${y+50}" r="44" fill="none" stroke="rgba(0,0,0,.22)" stroke-width="8" pointer-events="none"/>`
+                       : `<circle cx="${x+50}" cy="${y+50}" r="16" fill="rgba(0,0,0,.22)" pointer-events="none"/>`;
     }
   }
   let s = "";
@@ -365,24 +390,91 @@ function drawBoard(){
     s += `<text x="5" y="${i*100+20}" font-size="16" font-weight="700" fill="${i%2? 'var(--light)':'var(--dark)'}" font-family="var(--body)">${rank}</text>`;
   }
   for(const [sq,ch] of Object.entries(pcs)){
+    if(drag && drag.moved && sq===drag.from) continue;
     const [x,y] = sqXY(sq); const key = (ch===ch.toUpperCase()?"w":"b")+ch.toLowerCase();
     s += `<image href="${PIECES[key]}" x="${x+2}" y="${y+2}" width="96" height="96"/>`;
   }
+  let ghost = "";
+  if(drag && drag.moved){
+    const ch = pcs[drag.from]; const key = (ch===ch.toUpperCase()?"w":"b")+ch.toLowerCase();
+    ghost = `<image id="ghost" href="${PIECES[key]}" x="${drag.x-50}" y="${drag.y-50}" width="100" height="100" pointer-events="none"/>`;
+  }
   const el = document.getElementById("board");
-  el.innerHTML = s + extra;
-  el.classList.toggle("pick", !!retry && !retry.guess && !retry.revealed);
+  el.innerHTML = s + extra + ghost;
+  el.classList.toggle("pick", canMove());
+}
+function currentEval(){
+  const g = GAMES[gi];
+  if(retry){ if(retry.guess && retry.guess.label && !retry.guess.error) return retry.guess.ev; return ply-1 ? g.plies[ply-1].ev : 30; }
+  if(vari){
+    for(let i=vari.idx; i>0; i--){ const m = vari.moves[i-1]; if(m.ev!==undefined) { if(i===vari.idx) return m.ev; break; } }
+    const l = linesCache[viewFen()]; if(l && l[0]) return whiteCp(viewFen(), l[0].cp);
+    return vari.idx===0 ? (vari.base ? g.plies[vari.base].ev : 30) : null;
+  }
+  return ply ? g.plies[ply].ev : 30;
 }
 function drawEval(){
-  const vp = retry ? ply-1 : ply; const p = GAMES[gi].plies[vp]; let cp = vp? p.ev : 30;
-  if(retry && retry.guess && retry.guess.label) cp = retry.guess.ev;
+  const cp = currentEval(); if(cp===null) return;
   const clamp = Math.max(-1000, Math.min(1000, cp));
   const whitePct = 50 + 50*(2/(1+Math.exp(-0.004*clamp))-1);
-  // board is flipped: Black at bottom, so White's share fills from the top
   const fill = document.getElementById("evalfill"), num = document.getElementById("evalnum");
-  fill.style.top = "0"; fill.style.bottom = ""; fill.style.height = whitePct+"%";
+  // White's share fills from the top when Black is at the bottom, and from the bottom otherwise
+  fill.style.height = whitePct+"%";
+  if(flip){ fill.style.top="0"; fill.style.bottom=""; } else { fill.style.bottom="0"; fill.style.top=""; }
   num.textContent = evalText(cp);
-  if(cp>=0){ num.style.top="4px"; num.style.bottom=""; num.style.color="#222"; }
-  else { num.style.bottom="4px"; num.style.top=""; num.style.color="#fff"; }
+  const nearWhite = (cp>=0) === flip;  // number sits at the end of the bar belonging to the side that is ahead
+  if(nearWhite){ num.style.top="4px"; num.style.bottom=""; } else { num.style.bottom="4px"; num.style.top=""; }
+  num.style.color = cp>=0 ? "#222" : "#fff";
+}
+// ---- Engine lines above the board: follow whatever position is on the board
+const LINES_DEPTH = 14;
+const linesCache = {};
+let linesWanted = null, linesBusy = false, showLines = true;
+try { showLines = localStorage.getItem("gr-lines") !== "off"; } catch(e) {}
+function whiteCp(fen, cp){ return fen.split(" ")[1]==="w" ? cp : -cp; }
+function lineEval(fen, l){
+  if(l.mate!==null && l.mate!==undefined){ const m = fen.split(" ")[1]==="w" ? l.mate : -l.mate; return (m>0?"M":"−M")+Math.abs(m); }
+  const c = whiteCp(fen, l.cp)/100; return (c>=0?"+":"−")+Math.abs(c).toFixed(2);
+}
+function pvSan(fen, pv, max=10){
+  const ch = new Chess(fen); let out = []; let n = +fen.split(" ")[5], black = fen.split(" ")[1]==="b";
+  for(const u of pv.slice(0,max)){
+    const m = ch.move({from:u.slice(0,2), to:u.slice(2,4), promotion:u[4]||"q"}); if(!m) break;
+    if(!black) out.push(`${n}. ${m.san}`); else { out.push(out.length ? m.san : `${n}… ${m.san}`); n++; }
+    black = !black;
+  }
+  return out.join(" ");
+}
+function drawLines(){
+  const el = document.getElementById("lines");
+  const btn = `<button class="lbtn" id="linesToggle">${showLines?"Hide":"Show"}</button>`;
+  if(!showLines){ el.innerHTML = `<div class="lhead"><span>Engine lines</span>${btn}</div>`; bindLinesToggle(); return; }
+  let body;
+  if(retry && !retry.revealed) body = `<div class="ln muted">Hidden while you retry, so the answer stays hidden.</div>`;
+  else {
+    const fen = viewFen(), c = new Chess(fen);
+    if(c.game_over()) body = `<div class="ln muted">${c.in_checkmate() ? "Checkmate." : "Draw."}</div>`;
+    else if(linesCache[fen]) body = linesCache[fen].map(l => {
+      const w = whiteCp(fen, l.cp) >= 0;
+      return `<div class="ln"><span class="lev ${w?"w":"b"}">${lineEval(fen,l)}</span><span class="pv">${pvSan(fen, l.pv)}</span></div>`;
+    }).join("");
+    else { body = `<div class="ln muted"><span class="spin"></span>Analysing…</div>`; requestLines(fen); }
+  }
+  el.innerHTML = `<div class="lhead"><span>Engine lines · depth ${LINES_DEPTH}</span>${btn}</div>${body}`;
+  bindLinesToggle();
+}
+function bindLinesToggle(){
+  document.getElementById("linesToggle").onclick = () => { showLines = !showLines; try{ localStorage.setItem("gr-lines", showLines?"on":"off"); }catch(e){} drawLines(); };
+}
+function requestLines(fen){ linesWanted = fen; if(!linesBusy) runLines(); }
+async function runLines(){
+  linesBusy = true;
+  while(linesWanted && !linesCache[linesWanted]){
+    const fen = linesWanted;
+    try { linesCache[fen] = await Engine.analyse(fen, LINES_DEPTH, 3); } catch(e) { linesWanted = null; break; }
+    if(showLines && fen === viewFen()){ drawLines(); if(vari) drawEval(); }
+  }
+  linesBusy = false;
 }
 function drawChart(){
   const g = GAMES[gi], n = g.plies.length-1, W=400, H=84;
@@ -412,39 +504,55 @@ function drawCoach(){
     if(retry.revealed){
       head = `<b style="color:var(--c-Best)">The best move was ${p.best}.</b>`;
       sub = `In the game you played ${mn}${p.san} (${p.label.toLowerCase()}).`;
-      btns = `<button class="cbtn go" id="cNext">Next mistake</button><button class="cbtn" id="cExit">Back to game</button>`;
+      btns = `<button class="cbtn go" id="cNext">Next mistake</button><button class="cbtn" id="cExit">Back to review</button>`;
     } else if(gs && !gs.label){
       head = `<b>Analysing ${gs.san}…</b>`;
       sub = `<span class="spin"></span>${retry.status || "Starting the engine…"}`;
-      btns = `<button class="cbtn" id="cExit">Back to game</button>`;
+      btns = `<button class="cbtn" id="cExit">Back to review</button>`;
     } else if(gs && gs.error){
       head = `<b style="color:var(--c-Blunder)">The engine could not run.</b>`;
-      sub = gs.error; btns = `<button class="cbtn" id="cAgain">Try again</button><button class="cbtn" id="cExit">Back to game</button>`;
+      sub = gs.error; btns = `<button class="cbtn" id="cAgain">Try again</button><button class="cbtn" id="cExit">Back to review</button>`;
     } else if(gs){
       const good = ["Best","Great"].includes(gs.label);
-      head = `<b style="color:${col(gs.label)}">${gs.san} is ${phrase(gs.label)}${good?"!":"."}</b>`;
+      head = `<b style="color:${col(gs.label)}">${verdict(gs.san, gs.label)}${good?"!":"."}</b>`;
       sub = `Evaluation after the move: ${gs.ev>=0?"+":"−"}${evalText(gs.ev)}` + (gs.loss ? ` · Win chance lost: ${gs.loss}%` : "") +
             ` · In the game you played ${p.san} (${p.label.toLowerCase()}).`;
-      btns = good ? `<button class="cbtn go" id="cNext">Next mistake</button><button class="cbtn" id="cExit">Back to game</button>`
-                  : `<button class="cbtn go" id="cAgain">Try again</button><button class="cbtn" id="cShow">Show answer</button><button class="cbtn" id="cExit">Back to game</button>`;
+      btns = good ? `<button class="cbtn go" id="cNext">Next mistake</button><button class="cbtn" id="cExit">Back to review</button>`
+                  : `<button class="cbtn go" id="cAgain">Try again</button><button class="cbtn" id="cShow">Show answer</button><button class="cbtn" id="cExit">Back to review</button>`;
     } else {
       head = `<b>Retry: find a better move for ${side}</b>`;
-      sub = retry.illegal ? `<span style="color:var(--c-Blunder)">${retry.illegal.msg}</span>` :
-            `In the game you played ${p.san}. Click one of your pieces, then a highlighted square.`;
-      btns = `<button class="cbtn" id="cShow">Show answer</button><button class="cbtn" id="cExit">Back to game</button>`;
+      sub = `In the game you played ${p.san}. Drag a piece, or click it and then a highlighted square.`;
+      btns = `<button class="cbtn" id="cShow">Show answer</button><button class="cbtn" id="cExit">Back to review</button>`;
     }
     const tries = retry.attempts.length ? `<div class="tries">${retry.attempts.map((a,i)=>`<div>Try ${i+1}: ${icon(a.label)} ${a.san} <span class="sub" style="display:inline">${a.label}</span></div>`).join("")}</div>` : "";
     el.innerHTML = `${icon(gs&&gs.label ? gs.label : (retry.revealed?"Best":p.label))}<div style="flex:1">${head}<span class="sub">${sub}</span>${tries}<div class="cbtns">${btns}</div></div>`;
     const b = id => document.getElementById(id);
     if(b("cExit")) b("cExit").onclick = () => { retry=null; redraw(); };
     if(b("cShow")) b("cShow").onclick = () => { retry.revealed=true; retry.guess=null; redraw(); };
-    if(b("cAgain")) b("cAgain").onclick = () => { retry.guess=null; retry.sel=null; retry.illegal=null; redraw(); };
+    if(b("cAgain")) b("cAgain").onclick = () => { retry.guess=null; sel=null; redraw(); };
     if(b("cNext")) b("cNext").onclick = () => practiceNext();
     return;
   }
-  if(ply===0){ el.innerHTML = `<span class="ic" style="background:var(--accent)">★</span><div><b>${g.h.White} vs ${g.h.Black}</b><span class="sub">${[g.h.ECO, tcText(g.h.TimeControl), g.h.Date].filter(Boolean).join(" · ")} · Result ${g.h.Result}. Step through the moves with ◀ ▶ or the arrow keys.</span></div>`; return; }
+  if(vari){
+    const base = g.plies[vari.base], last = vari.idx ? vari.moves[vari.idx-1] : null;
+    const chips = vari.moves.map((m,i)=>{
+      const black = m.before.split(" ")[1]==="b", n = m.before.split(" ")[5];
+      const num = !black ? `${n}. ` : (i===0 ? `${n}… ` : "");
+      return `<button class="vmv${i+1===vari.idx?" cur":""}" data-v="${i+1}">${num}${m.label?icon(m.label):'<span class="spin"></span>'}${m.san}</button>`;
+    }).join("");
+    let head, sub;
+    if(!last){ head = `<b>Your line from move ${base.num||1}</b>`; sub = "Play a move on the board to continue."; }
+    else if(!m_label(last)){ head = `<b>Analysing ${last.san}…</b>`; sub = "The engine is rating your move."; }
+    else { head = `<b style="color:${col(last.label)}">${verdict(last.san, last.label)}${["Best","Great","Brilliant"].includes(last.label)?"!":"."}</b>`;
+           sub = `Evaluation after the move: ${last.ev>=0?"+":"−"}${evalText(last.ev)}` + (last.loss ? ` · Win chance lost: ${last.loss}%` : ""); }
+    el.innerHTML = `${last&&last.label?icon(last.label):'<span class="ic" style="background:var(--c-Great)">↳</span>'}<div style="flex:1;min-width:0">${head}<span class="sub">${sub}</span><div class="vline">${chips}</div><div class="cbtns"><button class="cbtn go" id="vExit">Back to review</button></div></div>`;
+    el.querySelectorAll(".vmv").forEach(b=>b.onclick=()=>{ vari.idx=+b.dataset.v; sel=null; redraw(); });
+    document.getElementById("vExit").onclick = exitVari;
+    return;
+  }
+  if(ply===0){ el.innerHTML = `<span class="ic" style="background:var(--accent)">★</span><div><b>${g.h.White} vs ${g.h.Black}</b><span class="sub">${[g.h.ECO, tcText(g.h.TimeControl), g.h.Date].filter(Boolean).join(" · ")} · Result ${g.h.Result}. Step through the moves with ◀ ▶ or the arrow keys, or move a piece to try your own line.</span></div>`; return; }
   const who = isMine(g,p) ? "You" : "Opponent";
-  let line = `${mn}${p.san} is ${p.label==="Missed win"?"a missed win":p.label==="Excellent"||p.label==="Inaccuracy"?"an "+p.label.toLowerCase():p.label==="Book"?"a book move":p.label==="Best"?"best":"a "+p.label.toLowerCase()}`;
+  let line = mn + verdict(p.san, p.label);
   let sub = `${who} · Evaluation after the move: ${p.ev>=0?"+":"−"}${evalText(p.ev)}`;
   const mine = isMyError(g,ply);
   if(p.san!==p.best && p.label!=="Book" && (showArrows || !mine)) sub += ` · Best was <b style="display:inline;color:var(--accent)">${p.best}</b>`;
@@ -453,7 +561,7 @@ function drawCoach(){
   if(mine) document.getElementById("cRetry").onclick = startRetry;
 }
 function startRetry(){
-  retry = {sel:null, illegal:null, guess:null, revealed:false, attempts:[]}; redraw();
+  vari = null; sel = null; retry = {guess:null, revealed:false, attempts:[]}; redraw();
   // warm up: start the engine and analyse the position in the background
   const g = GAMES[gi]; const fen = g.plies[ply-1].fen, key = gi+":"+fen;
   if(!beforeCache[key]) beforeCache[key] = Engine.analyse(fen, DEPTH, 2);
@@ -464,7 +572,9 @@ function practiceNext(){
   if(i<0){ retry=null; redraw(); return; }
   retry = null; go(i); startRetry();
 }
-function redraw(){ drawBoard(); drawEval(); drawCoach(); }
+function m_label(m){ return !!m.label; }
+function redraw(){ drawBoard(); drawEval(); drawCoach(); drawLines(); }
+function exitVari(){ vari = null; sel = null; redraw(); }
 function drawStatic(){
   const g = GAMES[gi], h = g.h, a = g.acc;
   const pl = (name, elo, side) => `<span class="av ${side}"><img src="${PIECES[side+"k"]}" alt="" width="28" height="28"></span>${name} <span class="rt">(${elo})</span>${name===ME?'<span class="you">YOU</span>':''}`;
@@ -493,9 +603,9 @@ function drawStatic(){
   document.getElementById("gamePick").value = gi;
 }
 function go(n){
-  retry = null;
+  retry = null; vari = null; sel = null;
   const max = GAMES[gi].plies.length-1; ply = Math.max(0, Math.min(max, n));
-  drawBoard(); drawEval(); drawChart(); drawCoach();
+  drawBoard(); drawEval(); drawChart(); drawCoach(); drawLines();
   document.querySelectorAll(".mv").forEach(b=>b.classList.toggle("cur", +b.dataset.p===ply));
   const cur = document.querySelector(".mv.cur"), box = document.getElementById("moves");
   if(cur){ const top = cur.offsetTop - box.offsetTop; if(top < box.scrollTop || top > box.scrollTop + box.clientHeight - 30) box.scrollTop = top - box.clientHeight/2; }
@@ -523,14 +633,16 @@ function buildPicker(){
 }
 document.getElementById("gamePick").onchange = e => selectGame(+e.target.value);
 document.getElementById("bStart").onclick=()=>go(0);
-document.getElementById("bPrev").onclick=()=>go(ply-1);
-document.getElementById("bNext").onclick=()=>go(ply+1);
+function stepBack(){ if(vari){ if(vari.idx>0){ vari.idx--; sel=null; redraw(); } else exitVari(); } else go(ply-1); }
+function stepFwd(){ if(vari){ if(vari.idx<vari.moves.length){ vari.idx++; sel=null; redraw(); } } else go(ply+1); }
+document.getElementById("bPrev").onclick=stepBack;
+document.getElementById("bNext").onclick=stepFwd;
 document.getElementById("bEnd").onclick=()=>go(1e9);
 document.addEventListener("keydown",e=>{
   if(e.target.closest && e.target.closest("input,textarea,select")) return;
-  if(e.key==="Escape" && retry){retry=null;redraw();}
-  if(e.key==="ArrowRight"){go(ply+1);e.preventDefault();}
-  if(e.key==="ArrowLeft"){go(ply-1);e.preventDefault();}
+  if(e.key==="Escape"){ if(retry){retry=null;sel=null;redraw();} else if(vari) exitVari(); else if(sel){ sel=null; drawBoard(); } }
+  if(e.key==="ArrowRight"){stepFwd();e.preventDefault();}
+  if(e.key==="ArrowLeft"){stepBack();e.preventDefault();}
   if(e.key==="Home") go(0); if(e.key==="End") go(1e9);
 });
 function syncArrowBtn(){ const b=document.getElementById("tArrows"); b.setAttribute("aria-pressed", showArrows); b.textContent = "Best-move arrows: " + (showArrows?"On":"Off"); }
@@ -539,27 +651,66 @@ document.getElementById("tArrows").onclick = () => {
   syncArrowBtn(); redraw();
 };
 document.getElementById("tPractice").onclick = () => practiceNext();
-const PNAME = {p:"pawn",n:"knight",b:"bishop",r:"rook",q:"queen",k:"king"};
-document.getElementById("board").addEventListener("click", e => {
-  if(!retry || retry.guess || retry.revealed) return;
+// ---- Moving pieces: click-click or drag. Only legal moves are accepted; anything else is ignored.
+const boardEl = document.getElementById("board");
+function svgPoint(e){ const r = boardEl.getBoundingClientRect(); return [(e.clientX-r.left)/r.width*800, (e.clientY-r.top)/r.height*800]; }
+function ownPiece(sq){ const ch = new Chess(viewFen()); const pc = ch.get(sq); return pc && pc.color===ch.turn(); }
+boardEl.addEventListener("pointerdown", e => {
+  if(!canMove() || e.button>0) return;
   const sq = sqFromClick(e); if(!sq) return;
-  const g = GAMES[gi], p = g.plies[ply], fen = g.plies[ply-1].fen;
-  const ch = new Chess(fen), pc = ch.get(sq);
-  if(pc && pc.color===ch.turn()){ retry.sel = (retry.sel===sq ? null : sq); retry.illegal = null; redraw(); return; }
-  if(!retry.sel){ redraw(); return; }
-  const from = retry.sel; retry.sel = null;
-  const mv = ch.move({from, to:sq, promotion:"q"});
-  if(!mv){
-    const piece = PNAME[new Chess(fen).get(from).type];
-    retry.illegal = {from, to:sq, msg: `Illegal move: the ${piece} on ${from} cannot go to ${sq}` +
-      (new Chess(fen).in_check() ? ". Your king is in check, so you must deal with the check first." : ".")};
-    redraw(); return;
+  if(ownPiece(sq)){
+    const [x,y] = svgPoint(e);
+    drag = {from:sq, x, y, sx:e.clientX, sy:e.clientY, moved:false, wasSel: sel===sq, id:e.pointerId};
+    sel = sq; boardEl.setPointerCapture(e.pointerId); drawBoard(); e.preventDefault(); return;
   }
-  retry.illegal = null;
-  const guess = {from, to:sq, san: mv.san, fenPreview: ch.fen()};
+  if(sel && legalTargets(sel).includes(sq)){ const from = sel; sel = null; userMove(from, sq); return; }
+  if(sel){ sel = null; drawBoard(); }
+});
+boardEl.addEventListener("pointermove", e => {
+  if(!drag || e.pointerId!==drag.id) return;
+  const [x,y] = svgPoint(e); drag.x = x; drag.y = y;
+  if(!drag.moved && Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy) > 4){ drag.moved = true; drawBoard(); return; }
+  const gh = document.getElementById("ghost"); if(gh){ gh.setAttribute("x", x-50); gh.setAttribute("y", y-50); }
+});
+function endDrag(e, cancelled){
+  if(!drag || e.pointerId!==drag.id) return;
+  const d = drag; drag = null;
+  if(d.moved){
+    const to = cancelled ? null : sqFromClick(e);
+    sel = null;
+    if(to && to!==d.from && legalTargets(d.from).includes(to)){ userMove(d.from, to); return; }
+    drawBoard(); return;   // illegal or off the board: the piece goes back
+  }
+  if(d.wasSel) sel = null;   // clicking the selected piece again deselects it
+  drawBoard();
+}
+boardEl.addEventListener("pointerup", e => endDrag(e, false));
+boardEl.addEventListener("pointercancel", e => endDrag(e, true));
+function userMove(from, to){
+  const fen = viewFen(), ch = new Chess(fen);
+  const mv = ch.move({from, to, promotion:"q"}); if(!mv) { drawBoard(); return; }
+  if(retry){ retryMove(fen, from, to, mv, ch); return; }
+  const g = GAMES[gi];
+  // Playing the game's own next move simply steps forward in the review
+  if(!vari && ply+1 < g.plies.length && g.plies[ply+1].frm===from && g.plies[ply+1].to===to){ go(ply+1); return; }
+  if(!vari) vari = {base: ply, moves: [], idx: 0};
+  vari.moves = vari.moves.slice(0, vari.idx);
+  const m = {from, to, san: mv.san, fen: ch.fen(), before: fen};
+  vari.moves.push(m); vari.idx = vari.moves.length;
+  redraw();
+  const stored = (vari.idx===1 && g.plies[vari.base+1]) ? uciOf(g.plies[vari.base+1]) : null;
+  const myVari = vari;
+  scoreGuess(fen, from+to, stored, ()=>{}).then(r => {
+    m.label = r.label; m.ev = r.ev; m.loss = r.loss;
+    if(vari===myVari){ drawBoard(); drawEval(); drawCoach(); }
+  }).catch(()=>{ m.label = null; });
+}
+function retryMove(fen, from, to, mv, ch){
+  const g = GAMES[gi], p = g.plies[ply];
+  const guess = {from, to, san: mv.san, fenPreview: ch.fen()};
   retry.guess = guess; retry.status = "Starting the engine…"; redraw();
   const myRetry = retry;
-  scoreGuess(fen, from+sq, uciOf(p), (d, step) => {
+  scoreGuess(fen, from+to, uciOf(p), (d, step) => {
     if(retry!==myRetry || retry.guess!==guess) return;
     retry.status = (step===1 ? "Analysing the position before your move" : "Analysing the position after your move") + ` · depth ${d} of ${DEPTH}`;
     const s = document.querySelector("#coach .sub"); if(s) s.innerHTML = `<span class="spin"></span>${retry.status}`;
@@ -570,7 +721,7 @@ document.getElementById("board").addEventListener("click", e => {
     if(retry!==myRetry) return;
     guess.label = "Blunder"; guess.error = "Stockfish failed to load in this browser. " + (err && err.message ? err.message : ""); redraw();
   });
-});
+}
 // ---------- Loading and analysing new games
 function sortGames(){
   const key = g => (g.h.UTCDate||g.h.Date||"") + " " + (g.h.UTCTime||g.h.StartTime||"");
